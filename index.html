@@ -81,6 +81,16 @@
   .popcard a{font-size:12px}
   .note{font-size:13px;color:var(--ink-soft);font-weight:300;margin:14px 0 0}
 
+  /* ---- How a sighting happens ---- */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:26px}
+  .step{border-top:2px solid var(--ink);padding:12px 14px 0 0}
+  .step .stepnum{font-family:"Fraunces";font-weight:900;font-size:44px;color:var(--oxblood);line-height:.9;display:block}
+  .step h3{font-family:"Fraunces";font-weight:600;font-size:19px;margin:8px 0 7px}
+  .step p{margin:0;font-size:14.5px;line-height:1.52;color:var(--ink-soft);font-weight:300}
+  .step p a{color:var(--oxblood)}
+  @media(max-width:780px){.steps{grid-template-columns:repeat(2,1fr);gap:22px}}
+  @media(max-width:460px){.steps{grid-template-columns:1fr}}
+
   /* ---- Notable feed ---- */
   .notable-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:18px}
   .card{
@@ -178,6 +188,36 @@
     <div class="maptools" id="maptools"></div>
     <div id="map"></div>
     <p class="note">Each point is one research-grade observation confirmed by the iNaturalist community. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people notice (hawks, owls, herons, falcons, loons and cormorants) are plotted, since the full bird list runs to hundreds of species. Click a point for the photo and record.</p>
+  </section>
+
+  <section id="how-section">
+    <div class="shead">
+      <h2>How a sighting happens</h2>
+      <p>Every dot on the map began with a person who stopped to look</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <span class="stepnum">1</span>
+        <h3>Someone spots it</h3>
+        <p>A birder with a long lens, a hiker, a parent at the playground, a ranger on rounds. Anyone. Most records here come from ordinary New Yorkers, not scientists.</p>
+      </div>
+      <div class="step">
+        <span class="stepnum">2</span>
+        <h3>They log it</h3>
+        <p>They photograph the animal and post it to <a href="https://www.inaturalist.org/" target="_blank" rel="noopener">iNaturalist</a>, a free app run by the California Academy of Sciences and the National Geographic Society. The phone stamps the time and place automatically.</p>
+      </div>
+      <div class="step">
+        <span class="stepnum">3</span>
+        <h3>The crowd checks it</h3>
+        <p>Other naturalists anywhere in the world review the photo and add their own identification, confirming the species or correcting a wrong guess.</p>
+      </div>
+      <div class="step">
+        <span class="stepnum">4</span>
+        <h3>It becomes a record</h3>
+        <p>Once at least two-thirds agree on the species, with a photo and a date attached, the sighting turns &ldquo;research grade&rdquo; and lands on this map. Everything here has cleared that bar.</p>
+      </div>
+    </div>
+    <p class="note">The rescue log further down works differently. Those come from the New York City Urban Park Rangers, the uniformed staff who respond when someone reports an animal in a park that is hurt, stranded or out of place. A ranger records the species, its condition and what happened next.</p>
   </section>
 
   <section id="notable-section">
