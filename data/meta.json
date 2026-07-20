@@ -1,0 +1,21 @@
+{
+  "built": "2026-07-20T22:51:06+00:00",
+  "recent_days": 120,
+  "totals": {
+    "species": 537,
+    "wild_species": 530,
+    "by_class": {
+      "mammals": 44,
+      "birds": 438,
+      "reptiles": 37,
+      "amphibians": 18
+    },
+    "map_points": 5707,
+    "notable": 60,
+    "ranger_responses": 8865
+  },
+  "sources": {
+    "inaturalist": "iNaturalist API, place_id 674 (New York City), research-grade observations",
+    "rangers": "NYC Open Data fuhs-xmg2 (Urban Park Ranger Animal Condition Response)"
+  }
+}

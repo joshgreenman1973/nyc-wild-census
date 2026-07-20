@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The other New Yorkers: a census of the city's wild animals</title>
+<meta name="description" content="Every wild animal recorded in New York City, mapped from citizen-science and city rescue records. Not pigeons, not rats. The coyotes, seals, owls, foxes and salamanders that share the five boroughs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,900&family=Spectral:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --paper:#f3ecdb;
+    --paper-2:#eae0c9;
+    --ink:#241f18;
+    --ink-soft:#5a5145;
+    --rule:#c9bda0;
+    --oxblood:#8a3324;
+    --mammal:#a6512f;
+    --bird:#2f6b6e;
+    --reptile:#5f7038;
+    --amphibian:#c08a1e;
+    --shadow:rgba(40,30,15,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"Spectral",Georgia,serif}
+  body{
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(180,150,90,.06), transparent 60%),
+      radial-gradient(circle at 85% 90%, rgba(120,90,40,.05), transparent 55%);
+  }
+  a{color:var(--oxblood)}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 22px}
+
+  /* ---- Masthead ---- */
+  header.mast{border-bottom:3px double var(--ink);padding:34px 0 22px;position:relative}
+  .mast .kicker{
+    font-family:"Spectral";text-transform:uppercase;letter-spacing:.34em;
+    font-size:12px;color:var(--oxblood);font-weight:600;margin:0 0 12px
+  }
+  .mast h1{
+    font-family:"Fraunces";font-weight:900;font-size:clamp(38px,7vw,76px);
+    line-height:.96;margin:0;letter-spacing:-.01em
+  }
+  .mast .sub{
+    font-family:"Spectral";font-weight:300;font-size:clamp(16px,2.1vw,21px);
+    color:var(--ink-soft);max-width:60ch;margin:16px 0 0;line-height:1.5
+  }
+  .stats{display:flex;flex-wrap:wrap;gap:26px;margin-top:24px;align-items:baseline}
+  .stat{display:flex;flex-direction:column}
+  .stat b{font-family:"Fraunces";font-weight:900;font-size:34px;line-height:1}
+  .stat span{font-size:12.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-soft);margin-top:5px}
+  .updated{position:absolute;top:36px;right:22px;font-size:12px;color:var(--ink-soft);text-align:right;letter-spacing:.02em}
+
+  /* ---- Section headings ---- */
+  section{padding:38px 0}
+  .shead{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:22px}
+  .shead h2{font-family:"Fraunces";font-weight:600;font-size:clamp(23px,3.4vw,32px);margin:0}
+  .shead p{margin:0;color:var(--ink-soft);font-size:14.5px;font-weight:300}
+  .shead .num{font-family:"Fraunces";color:var(--oxblood);font-weight:900}
+
+  /* ---- Map ---- */
+  #map{height:600px;border:1.5px solid var(--ink);box-shadow:6px 6px 0 var(--shadow);background:#e9e2cf}
+  .leaflet-container{font-family:"Spectral",serif;background:#e9e2cf}
+  .maptools{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:0 0 16px}
+  .legend-toggle{
+    display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+    font-size:14px;padding:4px 11px 4px 7px;border:1.5px solid var(--ink);border-radius:2px;
+    background:var(--paper-2);transition:opacity .15s
+  }
+  .legend-toggle.off{opacity:.32;background:transparent}
+  .legend-toggle .dot{width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(0,0,0,.35)}
+  .maptools .sep{flex:1}
+  .ubi-toggle{font-size:13px;color:var(--ink-soft);display:inline-flex;gap:7px;align-items:center;cursor:pointer}
+  .popcard{font-family:"Spectral",serif;width:210px}
+  .popcard img{width:100%;height:130px;object-fit:cover;border:1px solid var(--ink);margin-bottom:7px;background:var(--paper-2)}
+  .popcard .cn{font-family:"Fraunces";font-weight:600;font-size:16px;line-height:1.1;display:block}
+  .popcard .sn{font-style:italic;color:var(--ink-soft);font-size:12.5px}
+  .popcard .meta{font-size:12px;color:var(--ink-soft);margin-top:6px;line-height:1.45}
+  .popcard a{font-size:12px}
+  .note{font-size:13px;color:var(--ink-soft);font-weight:300;margin:14px 0 0}
+
+  /* ---- Notable feed ---- */
+  .notable-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:18px}
+  .card{
+    border:1.5px solid var(--ink);background:var(--paper-2);position:relative;
+    box-shadow:4px 4px 0 var(--shadow);display:flex;flex-direction:column
+  }
+  .card img{width:100%;height:150px;object-fit:cover;border-bottom:1.5px solid var(--ink);background:#ddd2b6}
+  .card .body{padding:11px 13px 14px}
+  .card .cn{font-family:"Fraunces";font-weight:600;font-size:17px;line-height:1.05;margin:0}
+  .card .sn{font-style:italic;color:var(--ink-soft);font-size:12.5px;margin:2px 0 0}
+  .card .why{font-size:12.5px;margin:9px 0 0;line-height:1.4}
+  .card .loc{font-size:11.5px;color:var(--ink-soft);margin:8px 0 0;letter-spacing:.01em}
+  .tier-tag{
+    position:absolute;top:9px;left:9px;font-family:"Spectral";font-weight:600;font-size:10px;
+    text-transform:uppercase;letter-spacing:.12em;padding:3px 7px;background:var(--oxblood);color:#fff
+  }
+  .tier-2 .tier-tag{background:#7a5a1e}
+  .tier-1 .tier-tag{background:#3f5545}
+  .card .cls-strip{height:5px;width:100%}
+
+  /* ---- Census ---- */
+  .census-controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:18px}
+  .census-controls input{
+    font-family:"Spectral";font-size:15px;padding:8px 12px;border:1.5px solid var(--ink);
+    background:var(--paper);min-width:230px;color:var(--ink)
+  }
+  .chip{font-size:13px;padding:5px 13px;border:1.5px solid var(--ink);background:var(--paper-2);cursor:pointer;user-select:none}
+  .chip.off{opacity:.35;background:transparent}
+  .census-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px 22px}
+  .srow{display:flex;align-items:center;gap:11px;padding:7px 4px;border-bottom:1px solid var(--rule)}
+  .srow img{width:38px;height:38px;object-fit:cover;border:1px solid var(--ink);flex:none;background:var(--paper-2)}
+  .srow .nm{flex:1;min-width:0}
+  .srow .nm b{font-family:"Fraunces";font-weight:500;font-size:14.5px;display:block;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srow .nm i{font-size:11.5px;color:var(--ink-soft)}
+  .srow .ct{font-family:"Fraunces";font-weight:600;font-size:15px;text-align:right}
+  .srow.ubi{opacity:.55}
+  .srow.ubi .flag{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--oxblood)}
+  .census-more{margin-top:16px;text-align:center}
+  .btn{font-family:"Spectral";font-size:14px;padding:8px 20px;border:1.5px solid var(--ink);background:var(--paper-2);cursor:pointer}
+
+  /* ---- Rangers ---- */
+  .rangers-cols{display:grid;grid-template-columns:1.1fr 1.4fr;gap:34px}
+  .bar{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:14px}
+  .bar .lbl{width:150px;flex:none;text-align:right;color:var(--ink-soft)}
+  .bar .track{flex:1;height:15px;background:var(--paper-2);border:1px solid var(--rule);position:relative}
+  .bar .fill{height:100%;background:var(--mammal)}
+  .bar .v{font-family:"Fraunces";font-weight:600;font-size:13px;width:44px}
+  .resc-list{max-height:340px;overflow:auto;border:1.5px solid var(--ink);background:var(--paper-2)}
+  .resc{display:grid;grid-template-columns:78px 1fr auto;gap:10px;padding:8px 12px;border-bottom:1px solid var(--rule);font-size:13.5px;align-items:baseline}
+  .resc .d{color:var(--ink-soft);font-size:12px}
+  .resc .sp{font-family:"Fraunces";font-weight:500}
+  .resc .cond{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+  .cond-ok{color:var(--reptile)}.cond-bad{color:var(--oxblood)}
+  @media(max-width:820px){.rangers-cols{grid-template-columns:1fr}.bar .lbl{width:110px}}
+
+  /* ---- Footer ---- */
+  footer{border-top:3px double var(--ink);padding:30px 0 60px;margin-top:20px;font-size:13.5px;color:var(--ink-soft);font-weight:300;line-height:1.6}
+  footer h3{font-family:"Fraunces";font-weight:600;color:var(--ink);font-size:16px;margin:0 0 8px}
+  footer a{color:var(--oxblood)}
+  .caution{display:inline-block;margin-top:6px;font-size:12.5px;background:var(--oxblood);color:#fff;border:none;padding:6px 13px;cursor:pointer;font-family:"Spectral"}
+  .caution-box{display:none;margin-top:12px;padding:14px 16px;background:#1f2b3a;color:#dfe6ef;max-width:66ch;font-size:13px;line-height:1.55}
+  .caution-box.open{display:block}
+
+  @media(max-width:640px){
+    .mast{padding-top:26px}
+    .updated{position:static;text-align:left;margin:0 0 14px;font-size:11.5px}
+    .mast .kicker{letter-spacing:.2em;font-size:11px}
+    .stats{gap:18px 28px}
+    .stat b{font-size:28px}
+    #map{height:460px}
+    .bar .lbl{width:96px;font-size:12.5px}
+    .resc{grid-template-columns:64px 1fr auto;font-size:12.5px}
+  }
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="updated" id="updated">—</div>
+    <p class="kicker">A field census of New York City</p>
+    <h1>The other<br>New Yorkers</h1>
+    <p class="sub">Every wild animal the city keeps a record of: the coyotes, seals, owls, foxes, turtles and salamanders that share the five boroughs. Not the pigeons, rats, cats and dogs. The wild ones.</p>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="map-section">
+    <div class="shead">
+      <h2>The map</h2>
+      <p><span class="num" id="mapcount">—</span> sightings logged in the last <span id="days">120</span> days</p>
+    </div>
+    <div class="maptools" id="maptools"></div>
+    <div id="map"></div>
+    <p class="note">Each point is one research-grade observation confirmed by the iNaturalist community. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people notice (hawks, owls, herons, falcons, loons and cormorants) are plotted, since the full bird list runs to hundreds of species. Click a point for the photo and record.</p>
+  </section>
+
+  <section id="notable-section">
+    <div class="shead">
+      <h2>Notable lately</h2>
+      <p>The rarest animals seen in the city recently, ranked by how seldom they turn up</p>
+    </div>
+    <div class="notable-grid" id="notable"></div>
+  </section>
+
+  <section id="census-section">
+    <div class="shead">
+      <h2>The full census</h2>
+      <p><span class="num" id="wildcount">—</span> wild species on record, most-seen first</p>
+    </div>
+    <div class="census-controls">
+      <input type="search" id="search" placeholder="Search species…" autocomplete="off">
+      <span class="chip" data-cls="mammals">Mammals</span>
+      <span class="chip" data-cls="birds">Birds</span>
+      <span class="chip" data-cls="reptiles">Reptiles</span>
+      <span class="chip" data-cls="amphibians">Amphibians</span>
+      <label class="ubi-toggle"><input type="checkbox" id="showubi"> show pigeons, rats, cats &amp; co.</label>
+    </div>
+    <div class="census-grid" id="census"></div>
+    <div class="census-more"><button class="btn" id="morebtn">Show more</button></div>
+  </section>
+
+  <section id="rangers-section">
+    <div class="shead">
+      <h2>When the Rangers get called</h2>
+      <p><span class="num" id="resccount">—</span> animal responses logged by the Urban Park Rangers</p>
+    </div>
+    <div class="rangers-cols">
+      <div>
+        <h3 style="font-family:Fraunces;font-weight:600;margin:0 0 12px">Most-responded species</h3>
+        <div id="rangerbars"></div>
+      </div>
+      <div>
+        <h3 style="font-family:Fraunces;font-weight:600;margin:0 0 12px">Recent responses</h3>
+        <div class="resc-list" id="resclist"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <h3>Where this comes from</h3>
+    <p>
+      Species counts, the map and the notable feed are built from <a href="https://www.inaturalist.org/" target="_blank" rel="noopener">iNaturalist</a>,
+      restricted to research-grade observations inside the New York City boundary (place&nbsp;674). Research grade means at least two-thirds of identifiers agreed on the species, with a photo and a date. The rescue records come from
+      <a href="https://data.cityofnewyork.us/Environment/Urban-Park-Ranger-Animal-Condition-Response/fuhs-xmg2" target="_blank" rel="noopener">NYC Open Data</a>, the Urban Park Rangers' animal-condition response log.
+    </p>
+    <p>
+      Two honest limits. Counts reflect where people look, not where animals are: a well-birded park will out-report a quiet one. And &ldquo;notable&rdquo; here means rarely reported, which can mean genuinely rare, hard to spot, or simply new to the city. Escaped pets and one-off strays show up alongside true wild residents. The ubiquitous species you asked to set aside (pigeon, house sparrow, starling, brown and black rat, house mouse, feral cat and dog) are flagged and hidden by default, never dropped from the record.
+    </p>
+    <button class="caution" id="cautionbtn">On automation &amp; accuracy</button>
+    <div class="caution-box" id="cautionbox">
+      This page is assembled automatically from public APIs and refreshed daily. Records are only as good as the observers and identifiers who made them; misidentifications, joke entries and location fuzzing (iNaturalist obscures the exact spot of sensitive or endangered species) all exist in the source data. Treat individual points as leads, not proof. Nothing here is edited or interpreted by hand.
+    </div>
+    <p style="margin-top:20px;font-size:12.5px">Built by Josh Greenman · data © iNaturalist contributors (CC-licensed) and the City of New York · not affiliated with either.</p>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CLS = {
+  mammals:{color:'#a6512f',label:'Mammals'},
+  birds:{color:'#2f6b6e',label:'Birds'},
+  reptiles:{color:'#5f7038',label:'Reptiles'},
+  amphibians:{color:'#c08a1e',label:'Amphibians'},
+};
+const state = {census:[], sightings:[], notable:[], rescues:null, meta:null,
+  active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
+  censusCls:new Set(), search:'', censusLimit:60};
+
+const $ = s => document.querySelector(s);
+const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]; return `${mo} ${+day}, ${y}`; };
+
+let map, canvasRenderer, layer;
+
+async function load(){
+  const [census, sightings, notable, rescues, meta] = await Promise.all(
+    ['census','sightings','notable','rescues','meta'].map(f=>fetch(`data/${f}.json`).then(r=>r.json()))
+  );
+  Object.assign(state,{census,sightings,notable,rescues,meta});
+  renderHeader(); initMap(); renderMapTools(); drawMap();
+  renderNotable(); renderCensus(); renderRangers();
+}
+
+function renderHeader(){
+  const t = state.meta.totals;
+  $('#updated').innerHTML = 'Refreshed<br>'+new Date(state.meta.built).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  $('#days').textContent = state.meta.recent_days;
+  $('#mapcount').textContent = t.map_points.toLocaleString();
+  $('#wildcount').textContent = t.wild_species.toLocaleString();
+  $('#resccount').textContent = t.ranger_responses.toLocaleString();
+  const stats = [
+    [t.wild_species, 'wild species on record'],
+    [t.by_class.mammals, 'mammals'],
+    [t.by_class.birds, 'birds'],
+    [t.by_class.reptiles+t.by_class.amphibians, 'reptiles & amphibians'],
+    [t.map_points.toLocaleString(), 'recent sightings mapped'],
+  ];
+  $('#stats').innerHTML = stats.map(([n,l])=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+}
+
+function initMap(){
+  map = L.map('map',{preferCanvas:true, scrollWheelZoom:false}).setView([40.705,-73.94],11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
+  }).addTo(map);
+  map.on('click',()=>map.scrollWheelZoom.enable());
+  canvasRenderer = L.canvas({padding:0.5});
+}
+
+function renderMapTools(){
+  const el = $('#maptools');
+  el.innerHTML = Object.entries(CLS).map(([k,v])=>
+    `<span class="legend-toggle" data-cls="${k}"><span class="dot" style="background:${v.color}"></span>${v.label}</span>`
+  ).join('') + `<span class="sep"></span>`+
+  `<label class="ubi-toggle"><input type="checkbox" id="mapubi"> include pigeons, rats &amp; co.</label>`;
+  el.querySelectorAll('.legend-toggle').forEach(t=>t.onclick=()=>{
+    const c=t.dataset.cls;
+    if(state.active.has(c)){state.active.delete(c);t.classList.add('off');}
+    else{state.active.add(c);t.classList.remove('off');}
+    drawMap();
+  });
+  $('#mapubi').onchange=e=>{state.showUbi=e.target.checked;drawMap();};
+}
+
+function drawMap(){
+  if(layer) layer.remove();
+  layer = L.layerGroup();
+  let shown=0;
+  for(const p of state.sightings){
+    if(!state.active.has(p.class)) continue;
+    if(p.ubiquitous && !state.showUbi) continue;
+    const c = (CLS[p.class]||{}).color || '#666';
+    const m = L.circleMarker([p.lat,p.lon],{
+      renderer:canvasRenderer, radius:4, color:c, weight:1,
+      fillColor:c, fillOpacity:.62, opacity:.85
+    });
+    m.on('click',()=>m.bindPopup(popup(p),{maxWidth:240}).openPopup());
+    layer.addLayer(m); shown++;
+  }
+  layer.addTo(map);
+  $('#mapcount').textContent = shown.toLocaleString();
+}
+
+function popup(p){
+  const img = p.photo ? `<img src="${esc(p.photo).replace('square','medium')}" loading="lazy" alt="">` : '';
+  return `<div class="popcard">${img}
+    <span class="cn">${esc(p.common)}</span>
+    <span class="sn">${esc(p.sci)}</span>
+    <div class="meta">${fmtDate(p.date)}${p.place?' · '+esc(p.place):''}${p.by?'<br>observed by '+esc(p.by):''}</div>
+    ${p.uri?`<a href="${esc(p.uri)}" target="_blank" rel="noopener">See the record →</a>`:''}
+  </div>`;
+}
+
+function renderNotable(){
+  $('#notable').innerHTML = state.notable.map(n=>{
+    const tierName = n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen';
+    const img = n.photo?`<img src="${esc(n.photo).replace('square','medium')}" loading="lazy" alt="">`:`<div style="height:150px;background:#ddd2b6"></div>`;
+    const c = (CLS[n.class]||{}).color||'#666';
+    return `<a class="card tier-${n.tier}" href="${esc(n.uri)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
+      <span class="tier-tag">${tierName}</span>${img}
+      <div class="cls-strip" style="background:${c}"></div>
+      <div class="body">
+        <p class="cn">${esc(n.common)}</p>
+        <p class="sn">${esc(n.sci)}</p>
+        <p class="why">${esc(n.why)}.</p>
+        <p class="loc">${fmtDate(n.date)}${n.place?' · '+esc(n.place):''}</p>
+      </div></a>`;
+  }).join('');
+}
+
+function renderCensus(){
+  const grid = $('#census');
+  let list = state.census.filter(s=>{
+    if(s.ubiquitous && !state.showUbi) return false;
+    if(state.censusCls.size && !state.censusCls.has(s.class)) return false;
+    if(state.search){
+      const q=state.search.toLowerCase();
+      if(!s.common.toLowerCase().includes(q) && !s.sci.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+  const total=list.length;
+  list = list.slice(0, state.censusLimit);
+  grid.innerHTML = list.map(s=>{
+    const c=(CLS[s.class]||{}).color||'#666';
+    const img = s.photo?`<img src="${esc(s.photo)}" loading="lazy" alt="">`:`<img alt="" style="background:${c}22">`;
+    return `<div class="srow ${s.ubiquitous?'ubi':''}">
+      ${img}
+      <div class="nm"><b>${esc(s.common)}</b><i>${esc(s.sci)}</i>${s.ubiquitous?' <span class="flag">set aside</span>':''}</div>
+      <div class="ct" style="color:${c}">${s.count.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+  $('#morebtn').style.display = total>state.censusLimit ? '' : 'none';
+}
+
+function renderRangers(){
+  const r = state.rescues;
+  const max = r.by_species[0][1];
+  $('#rangerbars').innerHTML = r.by_species.slice(0,12).map(([sp,n])=>
+    `<div class="bar"><span class="lbl">${esc(sp)}</span>
+      <span class="track"><span class="fill" style="width:${Math.max(2,100*n/max)}%"></span></span>
+      <span class="v">${n.toLocaleString()}</span></div>`
+  ).join('');
+  const okConds=['Healthy','Released','ACC'];
+  $('#resclist').innerHTML = r.recent.map(x=>{
+    const bad = /injured|doa|dead|euth/i.test(x.condition);
+    return `<div class="resc">
+      <span class="d">${fmtDate(x.date)}</span>
+      <span><span class="sp">${esc(x.species)}</span> <span style="color:var(--ink-soft);font-size:12px">${esc(x.property||x.borough)}</span></span>
+      <span class="cond ${bad?'cond-bad':'cond-ok'}">${esc(x.condition||'—')}</span>
+    </div>`;
+  }).join('');
+}
+
+// ---- controls ----
+$('#search').addEventListener('input',e=>{state.search=e.target.value;state.censusLimit=60;renderCensus();});
+document.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+  const c=ch.dataset.cls;
+  if(state.censusCls.has(c)){
+    state.censusCls.delete(c);
+    ch.style.background='';ch.style.color='';
+  }else{
+    state.censusCls.add(c);
+    ch.style.background=CLS[c].color;ch.style.color='#fff';
+  }
+  state.censusLimit=60;renderCensus();
+});
+$('#showubi').addEventListener('change',e=>{state.showUbi=e.target.checked;state.censusLimit=60;renderCensus();});
+$('#morebtn').addEventListener('click',()=>{state.censusLimit+=90;renderCensus();});
+$('#cautionbtn').addEventListener('click',()=>$('#cautionbox').classList.toggle('open'));
+
+load();
+</script>
+</body>
+</html>
