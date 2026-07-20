@@ -24,6 +24,7 @@ flagged (`ubiquitous: true`) and hidden by default, never silently dropped.
 """
 
 import json
+import re
 import time
 import sys
 import urllib.request
@@ -73,6 +74,34 @@ UBIQUITOUS = {
 }
 
 RECENT_DAYS = 120  # window for the map + notable feed
+
+# Observations logged at a zoo or aquarium are dropped: at those locations the
+# community rarely flags captive exhibit animals, and there is no reliable way
+# to tell a wild squirrel on zoo grounds from an exotic species inside the
+# reptile house. Excluding the location entirely is the honest call.
+CAPTIVE_LOC = re.compile(r"\b(zoo|aquarium)\b", re.I)
+
+# Place labels that carry no real information -- shown when iNaturalist has
+# obscured the true coordinates (sensitive or wide-ranging species).
+VAGUE_PLACES = {"", "United States", "United States of America", "USA", "US"}
+
+
+# Trailing country tokens that iNaturalist appends in the observer's own app
+# language (e.g. "EE. UU." = Estados Unidos, "美国" = United States).
+COUNTRY_SUFFIX = re.compile(
+    r",\s*(United States(?: of America)?|USA|US|EE\.?\s*UU\.?|Estados Unidos|美国|미국)\.?\s*$",
+    re.I)
+
+
+def clean_place(place, obscured):
+    place = (place or "").strip()
+    if obscured and place in VAGUE_PLACES:
+        return "Location withheld by iNaturalist"
+    if place in VAGUE_PLACES:
+        return ""
+    # Drop a trailing country token so labels read as NYC places, not "…, USA".
+    place = COUNTRY_SUFFIX.sub("", place).strip().rstrip(",")
+    return place
 
 
 def get(url, tries=4):
@@ -205,7 +234,7 @@ def to_point(o):
         "class": cls,
         "date": o.get("observed_on"),
         "photo": photo_url(t),
-        "place": o.get("place_guess") or "",
+        "place": clean_place(o.get("place_guess"), o.get("obscured")),
         "by": (o.get("user") or {}).get("login") or "",
         "uri": o.get("uri") or "",
         "ubiquitous": sci in UBIQUITOUS,
@@ -226,13 +255,18 @@ def build_sightings():
 
     seen = set()
     points = []
+    dropped_captive = 0
     for o in raw:
         if o["id"] in seen:
             continue
         seen.add(o["id"])
+        if CAPTIVE_LOC.search(o.get("place_guess") or ""):
+            dropped_captive += 1
+            continue
         p = to_point(o)
         if p and p["lat"] and p["lon"]:
             points.append(p)
+    print(f"  dropped {dropped_captive} zoo/aquarium observations")
     print(f"  -> {len(points)} unique map points")
     (DATA / "sightings.json").write_text(json.dumps(points, separators=(",", ":")))
     return points
