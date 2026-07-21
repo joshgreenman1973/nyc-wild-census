@@ -127,7 +127,7 @@
   .srow .nm i{font-size:11.5px;color:var(--ink-soft)}
   .srow .ct{font-family:"Fraunces";font-weight:600;font-size:15px;text-align:right}
   .srow.ubi{opacity:.55}
-  .srow.ubi .flag{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--oxblood)}
+  .flag{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--oxblood);white-space:nowrap}
   .census-more{margin-top:16px;text-align:center}
   .btn{font-family:"Spectral";font-size:14px;padding:8px 20px;border:1.5px solid var(--ink);background:var(--paper-2);cursor:pointer}
 
@@ -245,6 +245,15 @@
     <div class="census-more"><button class="btn" id="morebtn">Show more</button></div>
   </section>
 
+  <section id="zoo-section" style="display:none">
+    <div class="shead">
+      <h2>Behind the glass</h2>
+      <p><span class="num" id="zoocount">—</span> species recorded only, or almost only, inside the city's zoos and aquarium</p>
+    </div>
+    <p class="note" style="margin:0 0 20px">These are the exhibit and hitchhiker animals whose iNaturalist records nearly all come from a zoo or aquarium, so they are kept out of the map, the notable feed and the wild census above. They are not wild New Yorkers, but they are part of what the record contains, so they are shown here rather than quietly deleted.</p>
+    <div class="census-grid" id="zoolist"></div>
+  </section>
+
   <section id="rangers-section">
     <div class="shead">
       <h2>When the Rangers get called</h2>
@@ -291,7 +300,7 @@ const CLS = {
   reptiles:{color:'#5f7038',label:'Reptiles'},
   amphibians:{color:'#c08a1e',label:'Amphibians'},
 };
-const state = {census:[], sightings:[], notable:[], rescues:null, meta:null,
+const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[],
   active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
   censusCls:new Set(), search:'', censusLimit:60};
 
@@ -302,12 +311,13 @@ const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); const mo=
 let map, canvasRenderer, layer;
 
 async function load(){
-  const [census, sightings, notable, rescues, meta] = await Promise.all(
-    ['census','sightings','notable','rescues','meta'].map(f=>fetch(`data/${f}.json`).then(r=>r.json()))
+  const [census, sightings, notable, rescues, meta, zoo] = await Promise.all(
+    ['census','sightings','notable','rescues','meta','zoo_species'].map(
+      f=>fetch(`data/${f}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]))
   );
-  Object.assign(state,{census,sightings,notable,rescues,meta});
+  Object.assign(state,{census,sightings,notable,rescues,meta,zoo});
   renderHeader(); initMap(); renderMapTools(); drawMap();
-  renderNotable(); renderCensus(); renderRangers();
+  renderNotable(); renderCensus(); renderZoo(); renderRangers();
 }
 
 function renderHeader(){
@@ -420,6 +430,23 @@ function renderCensus(){
     </div>`;
   }).join('');
   $('#morebtn').style.display = total>state.censusLimit ? '' : 'none';
+}
+
+function renderZoo(){
+  const list = state.zoo || [];
+  if(!list.length){ $('#zoo-section').style.display='none'; return; }
+  $('#zoo-section').style.display='';
+  $('#zoocount').textContent = list.length.toLocaleString();
+  $('#zoolist').innerHTML = list.map(s=>{
+    const c=(CLS[s.class]||{}).color||'#666';
+    const img = s.photo?`<img src="${esc(s.photo)}" loading="lazy" alt="">`:`<img alt="" style="background:${c}22">`;
+    const note = `${s.zoo} of ${s.total} record${s.total!==1?'s':''} at a zoo`;
+    return `<div class="srow">
+      ${img}
+      <div class="nm"><b>${esc(s.common)}</b><i>${esc(s.sci)}</i> <span class="flag">${note}</span></div>
+      <div class="ct" style="color:${c}">${s.total.toLocaleString()}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderRangers(){

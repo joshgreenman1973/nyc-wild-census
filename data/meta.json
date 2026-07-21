@@ -1,16 +1,17 @@
 {
-  "built": "2026-07-20T22:51:06+00:00",
+  "built": "2026-07-21T00:03:19+00:00",
   "recent_days": 120,
   "totals": {
-    "species": 537,
-    "wild_species": 530,
+    "species": 536,
+    "wild_species": 529,
+    "zoo_only_species": 1,
     "by_class": {
       "mammals": 44,
       "birds": 438,
-      "reptiles": 37,
+      "reptiles": 36,
       "amphibians": 18
     },
-    "map_points": 5683,
+    "map_points": 5634,
     "notable": 60,
     "ranger_responses": 8865
   },

@@ -81,6 +81,19 @@ RECENT_DAYS = 120  # window for the map + notable feed
 # reptile house. Excluding the location entirely is the honest call.
 CAPTIVE_LOC = re.compile(r"\b(zoo|aquarium)\b", re.I)
 
+# iNaturalist place IDs for the four NYC zoos that have their own (tight)
+# place polygons. The Bronx Zoo and the New York Aquarium have no place record,
+# so they are handled by bounding box below.
+ZOO_PLACE_IDS = "204057,204094,204060,204058"  # Central Park, Prospect Park, Queens, Staten Island
+# (nelat, nelng, swlat, swlng) around the two facilities without a place record.
+ZOO_BBOXES = [
+    {"nelat": 40.8585, "nelng": -73.8660, "swlat": 40.8420, "swlng": -73.8830},  # Bronx Zoo
+    {"nelat": 40.5760, "nelng": -73.9735, "swlat": 40.5725, "swlng": -73.9775},  # NY Aquarium
+]
+# A species is pulled out of the wild census and shown separately once this
+# share of its NYC records were made at a zoo or aquarium.
+ZOO_ONLY_SHARE = 0.66
+
 # Place labels that carry no real information -- shown when iNaturalist has
 # obscured the true coordinates (sensitive or wide-ranging species).
 VAGUE_PLACES = {"", "United States", "United States of America", "USA", "US"}
@@ -145,9 +158,60 @@ def photo_url(taxon, size="square"):
 # 1. Species census
 # ---------------------------------------------------------------------------
 
+ALL_ICONIC = ",".join(CLASSES)
+
+
+def fetch_zoo_counts():
+    """Count NYC research-grade records made at a zoo or aquarium, per species.
+
+    Uses iNaturalist's own location labels, not a raw bounding box: the four
+    zoos with place polygons are counted directly, while the Bronx Zoo and the
+    aquarium (no place record) are counted by pulling every observation in a
+    box around them and keeping only those iNaturalist itself geocoded to a
+    place named 'Zoo' or 'Aquarium'. That distinction matters -- it keeps a
+    wild Bronx River otter (labeled 'Bronx') out of the zoo tally while still
+    catching an exhibit gecko (labeled 'Bronx Zoo')."""
+    print("Counting zoo/aquarium records...")
+    zoo = {}
+    # Zoos with tight place polygons.
+    page = 1
+    while True:
+        url = (f"{INAT}/observations/species_counts?place_id={ZOO_PLACE_IDS}"
+               f"&iconic_taxa={ALL_ICONIC}&quality_grade=research"
+               f"&per_page=500&page={page}")
+        d = get(url)
+        if not d or not d["results"]:
+            break
+        for r in d["results"]:
+            zoo[r["taxon"]["id"]] = zoo.get(r["taxon"]["id"], 0) + r["count"]
+        if page * 500 >= d["total_results"]:
+            break
+        page += 1
+    # Bronx Zoo + aquarium: bounding box, then filter to zoo-labeled records.
+    for box in ZOO_BBOXES:
+        page = 1
+        while True:
+            q = {"iconic_taxa": ALL_ICONIC, "quality_grade": "research",
+                 "per_page": 200, "page": page, **box}
+            d = get(f"{INAT}/observations?" + urllib.parse.urlencode(q))
+            if not d or not d["results"]:
+                break
+            for o in d["results"]:
+                if CAPTIVE_LOC.search(o.get("place_guess") or ""):
+                    t = o.get("taxon") or {}
+                    if t.get("id"):
+                        zoo[t["id"]] = zoo.get(t["id"], 0) + 1
+            if page * 200 >= d["total_results"]:
+                break
+            page += 1
+    print(f"  {len(zoo)} species have at least one zoo/aquarium record")
+    return zoo
+
+
 def build_census():
     print("Building species census...")
-    species = []
+    zoo_counts = fetch_zoo_counts()
+    raw = []
     by_class_count = {}
     for taxon, label in CLASSES.items():
         page = 1
@@ -162,12 +226,16 @@ def build_census():
             for r in d["results"]:
                 t = r["taxon"]
                 sci = t["name"]
-                species.append({
+                total = r["count"]
+                zc = min(zoo_counts.get(t["id"], 0), total)
+                raw.append({
                     "id": t["id"],
                     "common": t.get("preferred_common_name") or sci,
                     "sci": sci,
                     "class": label,
-                    "count": r["count"],
+                    "count": total - zc,     # wild count (zoo records removed)
+                    "total": total,          # raw iNaturalist total, for transparency
+                    "zoo": zc,               # records made at a zoo / aquarium
                     "photo": photo_url(t),
                     "wiki": t.get("wikipedia_url") or "",
                     "ubiquitous": sci in UBIQUITOUS,
@@ -179,9 +247,25 @@ def build_census():
         by_class_count[label] = got
         print(f"  {label}: {got} species")
 
+    # Split off species that live (almost) entirely inside the zoos.
+    species, zoo_only = [], []
+    for s in raw:
+        share = s["zoo"] / s["total"] if s["total"] else 0
+        if s["zoo"] > 0 and (s["count"] == 0 or share >= ZOO_ONLY_SHARE):
+            zoo_only.append(s)
+        else:
+            species.append(s)
+
     species.sort(key=lambda s: -s["count"])
+    zoo_only.sort(key=lambda s: -s["zoo"])
+    # Class counts should reflect the wild census, after zoo-only species leave.
+    by_class_count = {label: 0 for label in CLASSES.values()}
+    for s in species:
+        by_class_count[s["class"]] += 1
     (DATA / "census.json").write_text(json.dumps(species, separators=(",", ":")))
-    return species, by_class_count
+    (DATA / "zoo_species.json").write_text(json.dumps(zoo_only, separators=(",", ":")))
+    print(f"  -> {len(species)} wild species, {len(zoo_only)} zoo-only species set aside")
+    return species, zoo_only, by_class_count
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +457,7 @@ def build_rescues():
 # ---------------------------------------------------------------------------
 
 def main():
-    census, by_class = build_census()
+    census, zoo_only, by_class = build_census()
     points = build_sightings()
     notable = build_notable(census, points)
     rescues = build_rescues()
@@ -385,6 +469,7 @@ def main():
         "totals": {
             "species": len(census),
             "wild_species": len(wild),
+            "zoo_only_species": len(zoo_only),
             "by_class": by_class,
             "map_points": len(points),
             "notable": len(notable),
