@@ -225,7 +225,15 @@
       <h2>Notable lately</h2>
       <p>The rarest animals seen in the city recently, ranked by how seldom they turn up</p>
     </div>
+    <div class="census-controls">
+      <span class="chip nchip" data-cls="mammals">Mammals</span>
+      <span class="chip nchip" data-cls="birds">Birds</span>
+      <span class="chip nchip" data-cls="reptiles">Reptiles</span>
+      <span class="chip nchip" data-cls="amphibians">Amphibians</span>
+      <span id="notable-status" style="font-size:13px;color:var(--ink-soft)"></span>
+    </div>
     <div class="notable-grid" id="notable"></div>
+    <p class="note" id="notable-empty" style="display:none">No notable sightings in that group in the last 120 days.</p>
   </section>
 
   <section id="census-section">
@@ -302,7 +310,7 @@ const CLS = {
 };
 const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[],
   active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
-  censusCls:new Set(), search:'', censusLimit:60};
+  censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60};
 
 const $ = s => document.querySelector(s);
 const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -391,7 +399,13 @@ function popup(p){
 }
 
 function renderNotable(){
-  $('#notable').innerHTML = state.notable.map(n=>{
+  const sel = state.notableCls;
+  const list = sel.size ? state.notable.filter(n=>sel.has(n.class)) : state.notable;
+  $('#notable-empty').style.display = list.length ? 'none' : '';
+  $('#notable-status').textContent = sel.size
+    ? `${list.length} of ${state.notable.length} shown`
+    : '';
+  $('#notable').innerHTML = list.map(n=>{
     const tierName = n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen';
     const img = n.photo?`<img src="${esc(n.photo).replace('square','medium')}" loading="lazy" alt="">`:`<div style="height:150px;background:#ddd2b6"></div>`;
     const c = (CLS[n.class]||{}).color||'#666';
@@ -470,17 +484,22 @@ function renderRangers(){
 
 // ---- controls ----
 $('#search').addEventListener('input',e=>{state.search=e.target.value;state.censusLimit=60;renderCensus();});
-document.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
-  const c=ch.dataset.cls;
-  if(state.censusCls.has(c)){
-    state.censusCls.delete(c);
-    ch.style.background='';ch.style.color='';
-  }else{
-    state.censusCls.add(c);
-    ch.style.background=CLS[c].color;ch.style.color='#fff';
-  }
-  state.censusLimit=60;renderCensus();
-});
+// Shared toggle behaviour for a set of class chips.
+function wireChips(selector, set, onChange){
+  document.querySelectorAll(selector).forEach(ch=>ch.onclick=()=>{
+    const c=ch.dataset.cls;
+    if(set.has(c)){
+      set.delete(c);
+      ch.style.background='';ch.style.color='';
+    }else{
+      set.add(c);
+      ch.style.background=CLS[c].color;ch.style.color='#fff';
+    }
+    onChange();
+  });
+}
+wireChips('#census-section .chip', state.censusCls, ()=>{state.censusLimit=60;renderCensus();});
+wireChips('.nchip', state.notableCls, renderNotable);
 $('#showubi').addEventListener('change',e=>{state.showUbi=e.target.checked;state.censusLimit=60;renderCensus();});
 $('#morebtn').addEventListener('click',()=>{state.censusLimit+=90;renderCensus();});
 $('#cautionbtn').addEventListener('click',()=>$('#cautionbox').classList.toggle('open'));
