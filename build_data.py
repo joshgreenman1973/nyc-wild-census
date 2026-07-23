@@ -93,6 +93,12 @@ ZOO_BBOXES = [
 # A species is pulled out of the wild census and shown separately once this
 # share of its NYC records were made at a zoo or aquarium.
 ZOO_ONLY_SHARE = 0.66
+# Sanity floors for the census. The wild count sits in the mid-hundreds (536 at
+# last check) and only ever grows as observations accumulate, so a collapse
+# means a broken or throttled fetch, not a quieter city. Set well below the real
+# number: these exist to catch a wipe, not to police normal variation.
+CENSUS_FLOOR = 200
+CENSUS_DROP_LIMIT = 0.75  # never accept losing more than a quarter at once
 
 # Place labels that carry no real information -- shown when iNaturalist has
 # obscured the true coordinates (sensitive or wide-ranging species).
@@ -128,6 +134,11 @@ def get(url, tries=4):
             return data
         except urllib.error.HTTPError as e:
             if e.code == 429:
+                if attempt == tries - 1:
+                    # Throttling is the most common real failure here. Falling
+                    # through to None let callers read it as "no more data" and
+                    # overwrite a good census with an empty one.
+                    raise
                 wait = 10 * (attempt + 1)
                 print(f"  429 throttled, waiting {wait}s", file=sys.stderr)
                 time.sleep(wait)
@@ -143,7 +154,9 @@ def get(url, tries=4):
             if attempt == tries - 1:
                 raise
             time.sleep(3)
-    return None
+    # Exhausting every retry is a failed fetch, not an empty result. Returning
+    # None here made a dead API indistinguishable from the end of the data.
+    raise RuntimeError(f"giving up on {url} after {tries} attempts")
 
 
 def photo_url(taxon, size="square"):
@@ -262,7 +275,23 @@ def build_census():
     by_class_count = {label: 0 for label in CLASSES.values()}
     for s in species:
         by_class_count[s["class"]] += 1
-    (DATA / "census.json").write_text(json.dumps(species, separators=(",", ":")))
+    # Refuse to publish a collapsed census. A throttled or broken fetch yields
+    # few or no species, which is never a real result for a city this size —
+    # and overwriting the good file would destroy the only copy.
+    prev_path = DATA / "census.json"
+    prev_count = 0
+    if prev_path.exists():
+        try:
+            prev_count = len(json.loads(prev_path.read_text()))
+        except (ValueError, OSError):
+            prev_count = 0
+    if len(species) < CENSUS_FLOOR or len(species) < prev_count * CENSUS_DROP_LIMIT:
+        raise RuntimeError(
+            f"census collapsed to {len(species)} species (previous {prev_count}, "
+            f"floor {CENSUS_FLOOR}); refusing to overwrite census.json"
+        )
+
+    prev_path.write_text(json.dumps(species, separators=(",", ":")))
     (DATA / "zoo_species.json").write_text(json.dumps(zoo_only, separators=(",", ":")))
     print(f"  -> {len(species)} wild species, {len(zoo_only)} zoo-only species set aside")
     return species, zoo_only, by_class_count
@@ -410,13 +439,12 @@ def build_rescues():
         "$order": "date_and_time_of_initial DESC",
     })
     url = f"https://data.cityofnewyork.us/resource/fuhs-xmg2.json?{q}"
-    try:
-        rows = get(url)
-    except Exception as e:  # noqa: BLE001
-        print(f"  rangers fetch failed: {e}", file=sys.stderr)
-        rows = []
+    # A failed fetch must not masquerade as "no rescues on record" — that would
+    # publish an empty rescue log over a good one. Let it raise.
+    rows = get(url)
     if not rows:
-        rows = []
+        raise RuntimeError("ranger rescues returned no rows; refusing to "
+                           "overwrite the existing rescue data")
 
     by_species = {}
     by_borough = {}
