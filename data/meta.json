@@ -1,5 +1,5 @@
 {
-  "built": "2026-08-05T12:23:56+00:00",
+  "built": "2026-08-06T12:24:23+00:00",
   "recent_days": 120,
   "totals": {
     "species": 538,
@@ -11,7 +11,7 @@
       "reptiles": 37,
       "amphibians": 18
     },
-    "map_points": 5596,
+    "map_points": 5593,
     "notable": 58,
     "ranger_responses": 8865
   },
