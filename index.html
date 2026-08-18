@@ -72,6 +72,12 @@
   .legend-toggle.off{opacity:.32;background:transparent}
   .legend-toggle .dot{width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(0,0,0,.35)}
   .maptools .sep{flex:1}
+  .timetools{margin-top:-6px;gap:6px 8px}
+  .timetools .tlabel{font-size:13px;color:var(--ink-soft);margin-right:4px}
+  .timetools .chip.on{background:var(--ink);color:var(--paper)}
+  .timetools .custom{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);margin-left:10px}
+  .timetools input[type=date]{font:inherit;font-size:13px;padding:3px 6px;border:1.5px solid var(--ink);background:var(--paper-2);color:var(--ink);border-radius:2px}
+  @media (max-width:640px){.timetools .custom{margin-left:0;flex-wrap:wrap}}
   .ubi-toggle{font-size:13px;color:var(--ink-soft);display:inline-flex;gap:7px;align-items:center;cursor:pointer}
   .popcard{font-family:"Spectral",serif;width:210px}
   .popcard img{width:100%;height:130px;object-fit:cover;border:1px solid var(--ink);margin-bottom:7px;background:var(--paper-2)}
@@ -183,9 +189,10 @@
   <section id="map-section">
     <div class="shead">
       <h2>The map</h2>
-      <p><span class="num" id="mapcount">—</span> sightings logged in the last <span id="days">120</span> days</p>
+      <p><span class="num" id="mapcount">—</span> sightings logged <span id="daysline">in the last 120 days</span></p>
     </div>
     <div class="maptools" id="maptools"></div>
+    <div class="maptools timetools" id="timetools"></div>
     <div id="map"></div>
     <p class="note">Each point is one research-grade observation confirmed by the iNaturalist community. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people notice (hawks, owls, herons, falcons, loons and cormorants) are plotted, since the full bird list runs to hundreds of species. Click a point for the photo and record.</p>
   </section>
@@ -331,8 +338,7 @@ async function load(){
 function renderHeader(){
   const t = state.meta.totals;
   $('#updated').innerHTML = 'Refreshed<br>'+new Date(state.meta.built).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  $('#days').textContent = state.meta.recent_days;
-  $('#mapcount').textContent = t.map_points.toLocaleString();
+  $('#mapcount').textContent = (t.recent_points ?? t.map_points).toLocaleString();
   $('#wildcount').textContent = t.wild_species.toLocaleString();
   $('#resccount').textContent = t.ranger_responses.toLocaleString();
   const stats = [
@@ -340,7 +346,7 @@ function renderHeader(){
     [t.by_class.mammals, 'mammals'],
     [t.by_class.birds, 'birds'],
     [t.by_class.reptiles+t.by_class.amphibians, 'reptiles & amphibians'],
-    [t.map_points.toLocaleString(), 'recent sightings mapped'],
+    [(t.recent_points ?? t.map_points).toLocaleString(), 'recent sightings mapped'],
   ];
   $('#stats').innerHTML = stats.map(([n,l])=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
 }
@@ -367,7 +373,38 @@ function renderMapTools(){
     drawMap();
   });
   $('#mapubi').onchange=e=>{state.showUbi=e.target.checked;drawMap();};
+  renderTimeTools();
 }
+
+// ---- time range ---------------------------------------------------------
+const PRESETS = [[7,'Last week'],[30,'Last 30 days'],[120,'Last 120 days'],[365,'Last year']];
+function isoDaysAgo(n){const d=new Date();d.setUTCDate(d.getUTCDate()-n);return d.toISOString().slice(0,10);}
+function renderTimeTools(){
+  const el = $('#timetools');
+  const maxDays = state.meta.map_days || 120;
+  const today = isoDaysAgo(0), floor = isoDaysAgo(maxDays);
+  const dates = state.sightings.map(p=>p.date).filter(Boolean).sort();
+  const minDate = dates[0] || floor;
+  el.innerHTML = `<span class="tlabel">Show</span>` +
+    PRESETS.filter(([n])=>n<=maxDays).map(([n,l])=>`<span class="chip time-chip" data-days="${n}">${l}</span>`).join('') +
+    `<span class="custom">or from <input type="date" id="tfrom" min="${minDate}" max="${today}"> to <input type="date" id="tto" min="${minDate}" max="${today}"></span>`;
+  const from=$('#tfrom'), to=$('#tto');
+  const setRange=(f,t,days)=>{
+    state.tFrom=f; state.tTo=t; state.tDays=days;
+    from.value=f; to.value=t;
+    el.querySelectorAll('.time-chip').forEach(c=>c.classList.toggle('on', +c.dataset.days===days));
+    drawMap();
+  };
+  el.querySelectorAll('.time-chip').forEach(c=>c.onclick=()=>setRange(isoDaysAgo(+c.dataset.days), today, +c.dataset.days));
+  const custom=()=>{
+    let f=from.value||minDate, t=to.value||today;
+    if(f>t) [f,t]=[t,f];
+    setRange(f,t,null);
+  };
+  from.onchange=custom; to.onchange=custom;
+  setRange(isoDaysAgo(state.meta.recent_days||120), today, state.meta.recent_days||120);
+}
+function fmtShort(iso){return new Date(iso+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 
 function drawMap(){
   if(layer) layer.remove();
@@ -376,6 +413,7 @@ function drawMap(){
   for(const p of state.sightings){
     if(!state.active.has(p.class)) continue;
     if(p.ubiquitous && !state.showUbi) continue;
+    if(state.tFrom && p.date && (p.date<state.tFrom || p.date>state.tTo)) continue;
     const c = (CLS[p.class]||{}).color || '#666';
     const m = L.circleMarker([p.lat,p.lon],{
       renderer:canvasRenderer, radius:4, color:c, weight:1,
@@ -386,6 +424,11 @@ function drawMap(){
   }
   layer.addTo(map);
   $('#mapcount').textContent = shown.toLocaleString();
+  if(state.tFrom){
+    $('#daysline').textContent = state.tDays===7 ? 'in the last week'
+      : state.tDays ? `in the last ${state.tDays} days`
+      : `between ${fmtShort(state.tFrom)} and ${fmtShort(state.tTo)}`;
+  }
 }
 
 function popup(p){

@@ -73,7 +73,8 @@ UBIQUITOUS = {
     "Canis lupus familiaris": "Domestic dog",
 }
 
-RECENT_DAYS = 120  # window for the map + notable feed
+RECENT_DAYS = 120  # window for the notable feed (and the map's default view)
+MAP_DAYS = 365     # how far back the map's time-range picker can go
 
 # Observations logged at a zoo or aquarium are dropped: at those locations the
 # community rarely flags captive exhibit animals, and there is no reliable way
@@ -301,31 +302,37 @@ def build_census():
 # 2. Recent geotagged sightings for the map
 # ---------------------------------------------------------------------------
 
-def fetch_recent(params, cap_pages):
-    """Fetch geotagged research-grade observations, newest first."""
+def fetch_recent(params, days, cap_pages):
+    """Fetch geotagged research-grade observations from the last `days` days.
+
+    Uses id_below cursoring (newest id first) rather than page numbers, since
+    iNaturalist refuses page*per_page beyond 10,000."""
     out = []
-    d1 = (datetime.now(timezone.utc) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
-    page = 1
-    while page <= cap_pages:
+    d1 = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    id_below = None
+    for _ in range(cap_pages):
         q = {
             "place_id": PLACE_ID,
             "quality_grade": "research",
             "geo": "true",
             "d1": d1,
             "order": "desc",
-            "order_by": "observed_on",
+            "order_by": "id",
             "per_page": 200,
-            "page": page,
             **params,
         }
+        if id_below:
+            q["id_below"] = id_below
         url = f"{INAT}/observations?" + urllib.parse.urlencode(q)
         d = get(url)
         if not d or not d["results"]:
             break
         out.extend(d["results"])
-        if len(out) >= d["total_results"]:
+        id_below = d["results"][-1]["id"]
+        if len(d["results"]) < 200:
             break
-        page += 1
+    else:
+        print(f"  WARNING: hit page cap ({cap_pages}); window truncated")
     return out
 
 
@@ -355,15 +362,15 @@ def to_point(o):
 
 
 def build_sightings():
-    print(f"Fetching recent sightings (last {RECENT_DAYS} days)...")
+    print(f"Fetching map sightings (last {MAP_DAYS} days)...")
     raw = []
     # Mammals, reptiles, amphibians: all of them.
-    raw += fetch_recent({"iconic_taxa": "Mammalia,Reptilia,Amphibia"}, cap_pages=25)
+    raw += fetch_recent({"iconic_taxa": "Mammalia,Reptilia,Amphibia"}, MAP_DAYS, cap_pages=120)
     print(f"  mammals/reptiles/amphibians: {len(raw)} obs")
     # Charismatic birds only.
     before = len(raw)
     ids = ",".join(str(i) for i in NOTABLE_BIRD_ORDERS)
-    raw += fetch_recent({"taxon_id": ids}, cap_pages=25)
+    raw += fetch_recent({"taxon_id": ids}, MAP_DAYS, cap_pages=120)
     print(f"  charismatic birds: {len(raw) - before} obs")
 
     seen = set()
@@ -487,19 +494,23 @@ def build_rescues():
 def main():
     census, zoo_only, by_class = build_census()
     points = build_sightings()
-    notable = build_notable(census, points)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
+    recent_points = [p for p in points if (p["date"] or "") >= cutoff]
+    notable = build_notable(census, recent_points)
     rescues = build_rescues()
 
     wild = [s for s in census if not s["ubiquitous"]]
     meta = {
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "recent_days": RECENT_DAYS,
+        "map_days": MAP_DAYS,
         "totals": {
             "species": len(census),
             "wild_species": len(wild),
             "zoo_only_species": len(zoo_only),
             "by_class": by_class,
             "map_points": len(points),
+            "recent_points": len(recent_points),
             "notable": len(notable),
             "ranger_responses": rescues["total"],
         },

@@ -6,7 +6,7 @@ A living census and map of the wild animals recorded in New York City: the coyot
 
 The page has four parts:
 
-1. **The map** — every research-grade sighting from the last 120 days, colored by animal class. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people actually notice (hawks, owls, herons, falcons, loons, cormorants) are plotted, because the full bird list runs to hundreds of species.
+1. **The map** — every research-grade sighting from the last year, colored by animal class, with a time-range picker (last week / 30 days / 120 days / year, or any custom span). Opens on the last 120 days. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people actually notice (hawks, owls, herons, falcons, loons, cormorants) are plotted, because the full bird list runs to hundreds of species.
 2. **Notable lately** — the rarest animals seen recently, ranked by how seldom they turn up in the city's records. This is where the mink, the river otter, the sei whale and the stray sea turtles surface.
 3. **The full census** — every wild species on record, most-seen first, searchable and filterable by class.
 4. **When the Rangers get called** — the NYC Urban Park Rangers' own animal-response log: what they respond to, and how those animals turn out.
@@ -40,7 +40,7 @@ Following the project rule of no black boxes, here is exactly what the numbers m
 `build_data.py` fetches everything and writes five JSON files into `data/`:
 
 - `census.json` — every wild vertebrate species with its all-time NYC research-grade count, photo and class
-- `sightings.json` — recent geotagged observations for the map
+- `sightings.json` — a year of geotagged observations for the map (fetched with iNaturalist `id_below` cursoring, since page numbering stops at 10,000)
 - `notable.json` — the rarest species seen recently, for the feed
 - `rescues.json` — Ranger responses: recent list plus aggregates
 - `meta.json` — build timestamp, headline totals, source notes
