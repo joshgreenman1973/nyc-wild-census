@@ -179,7 +179,7 @@
     <div class="updated" id="updated">—</div>
     <p class="kicker">A field census of New York City</p>
     <h1>The other<br>New Yorkers</h1>
-    <p class="sub">Every wild animal the city keeps a record of: the coyotes, seals, owls, foxes, turtles and salamanders that share the five boroughs. Not the pigeons, rats, cats and dogs. The wild ones.</p>
+    <p class="sub">Every wild animal the city keeps a record of: the coyotes, seals, owls, foxes, turtles and salamanders that share the five boroughs. Not the pigeons, rats, squirrels, cats and dogs. The wild ones.</p>
     <div class="stats" id="stats"></div>
   </div>
 </header>
@@ -254,7 +254,7 @@
       <span class="chip" data-cls="birds">Birds</span>
       <span class="chip" data-cls="reptiles">Reptiles</span>
       <span class="chip" data-cls="amphibians">Amphibians</span>
-      <label class="ubi-toggle"><input type="checkbox" id="showubi"> show pigeons, rats, cats &amp; co.</label>
+      <label class="ubi-toggle"><input type="checkbox" id="showubi"> show pigeons, rats, squirrels &amp; co.</label>
     </div>
     <div class="census-grid" id="census"></div>
     <div class="census-more"><button class="btn" id="morebtn">Show more</button></div>
@@ -365,7 +365,7 @@ function renderMapTools(){
   el.innerHTML = Object.entries(CLS).map(([k,v])=>
     `<span class="legend-toggle" data-cls="${k}"><span class="dot" style="background:${v.color}"></span>${v.label}</span>`
   ).join('') + `<span class="sep"></span>`+
-  `<label class="ubi-toggle"><input type="checkbox" id="mapubi"> include pigeons, rats &amp; co.</label>`;
+  `<label class="ubi-toggle"><input type="checkbox" id="mapubi"> include pigeons, rats, squirrels &amp; co.</label>`;
   el.querySelectorAll('.legend-toggle').forEach(t=>t.onclick=()=>{
     const c=t.dataset.cls;
     if(state.active.has(c)){state.active.delete(c);t.classList.add('off');}

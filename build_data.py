@@ -68,6 +68,9 @@ UBIQUITOUS = {
     "Rattus norvegicus": "Brown Rat",
     "Rattus rattus": "Black Rat",
     "Mus musculus": "House Mouse",
+    # The gray squirrel only. The red and flying squirrels are genuinely
+    # scarce here (7 and 29 all-time records) and belong in the notable feed.
+    "Sciurus carolinensis": "Eastern Gray Squirrel",
     "Felis catus": "Feral / domestic cat",
     "Canis familiaris": "Domestic dog",
     "Canis lupus familiaris": "Domestic dog",

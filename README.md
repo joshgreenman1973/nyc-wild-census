@@ -1,6 +1,6 @@
 # The other New Yorkers
 
-A living census and map of the wild animals recorded in New York City: the coyotes, seals, owls, foxes, turtles and salamanders that share the five boroughs. Not the pigeons, rats, cats and dogs. The wild ones.
+A living census and map of the wild animals recorded in New York City: the coyotes, seals, owls, foxes, turtles and salamanders that share the five boroughs. Not the pigeons, rats, squirrels, cats and dogs. The wild ones.
 
 **Live:** https://joshgreenman1973.github.io/nyc-wild-census/
 
@@ -32,7 +32,7 @@ Following the project rule of no black boxes, here is exactly what the numbers m
 - **Zoo and aquarium records are pulled out everywhere, not just the map.** Captive exhibit animals are rarely flagged as captive by observers, so an exotic species logged inside the Bronx Zoo reptile house can pass as "research grade." Every record iNaturalist geocodes to a zoo or aquarium is removed from the map, the notable feed and the species counts, so the census number for each animal reflects its *wild* records only. Species whose records are two-thirds or more from a zoo (currently the flat-tailed house gecko, an exhibit animal) are lifted out of the wild census entirely and listed separately under "Behind the glass."
   - The zoo tally uses iNaturalist's own location labels, not a raw map box. The four zoos with their own place boundaries are counted directly; the Bronx Zoo and the New York Aquarium, which have no place record, are handled by pulling every observation in a box around them and keeping only the ones iNaturalist itself labels "Zoo" or "Aquarium." That distinction is deliberate: it keeps a wild Bronx River otter (which iNaturalist labels "Bronx") in the wild census while still catching an exhibit gecko (labeled "Bronx Zoo"). A raw bounding box would wrongly brand the otter, the beaver and every wild bird near the zoo as captive.
 - **Location fuzzing.** iNaturalist obscures the precise coordinates of sensitive or threatened species, so some points are deliberately imprecise.
-- **The excluded synanthropes are flagged, never dropped.** The ubiquitous animals the census sets aside — rock pigeon, house sparrow, European starling, brown rat, black rat, house mouse, feral cat and domestic dog — are marked `ubiquitous: true` and hidden by default. Toggle "include pigeons, rats & co." to bring them back.
+- **The excluded synanthropes are flagged, never dropped.** The ubiquitous animals the census sets aside — rock pigeon, house sparrow, European starling, brown rat, black rat, house mouse, eastern gray squirrel, feral cat and domestic dog — are marked `ubiquitous: true` and hidden by default. Toggle "include pigeons, rats, squirrels & co." to bring them back. Only the gray squirrel is flagged: the American red squirrel and southern flying squirrel are rare enough in the city to stay in the wild census.
 - **The Rangers log is a response record, not a wildlife survey.** It counts calls the Urban Park Rangers answered (many for raccoons, injured birds, loose domestic animals), so it reflects human-animal conflict and rescue, which is a different lens than the iNaturalist sightings.
 
 ## How it is built
