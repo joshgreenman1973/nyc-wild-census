@@ -524,9 +524,16 @@ function renderMapTools(){
     const c=t.dataset.cls;
     if(state.active.has(c)){state.active.delete(c);t.classList.add('off');}
     else{state.active.add(c);t.classList.remove('off');}
+    unpick();
     drawMap();
   });
-  $('#mapubi').onchange=e=>{state.showUbi=e.target.checked;drawMap();};
+  $('#mapubi').onchange=e=>{
+    state.showUbi=e.target.checked;
+    $('#showubi').checked=e.target.checked;   // the two toggles are one setting
+    state.censusLimit=60; renderCensus();
+    unpick();
+    drawMap();
+  };
   renderTimeTools();
   renderMapSearch();
 }
@@ -544,10 +551,13 @@ function renderTimeTools(){
     PRESETS.filter(([n])=>n<=maxDays).map(([n,l])=>`<span class="chip time-chip" data-days="${n}">${l}</span>`).join('') +
     `<span class="custom">or from <input type="date" id="tfrom" min="${minDate}" max="${today}"> to <input type="date" id="tto" min="${minDate}" max="${today}"></span>`;
   const from=$('#tfrom'), to=$('#tto');
-  const setRange=(f,t,days)=>{
+  const setRange=(f,t,days,opts)=>{
     state.tFrom=f; state.tTo=t; state.tDays=days;
     from.value=f; to.value=t;
     el.querySelectorAll('.time-chip').forEach(c=>c.classList.toggle('on', +c.dataset.days===days));
+    // Reaching for the date controls means you are done looking at the one animal,
+    // except when the note itself widened the range to go find it.
+    if(!(opts && opts.keepPick)) unpick();
     drawMap();
   };
   setTimeRange = setRange;
@@ -566,7 +576,7 @@ function drawMap(){
   if(layer) layer.remove();
   layer = L.layerGroup();
   let shown=0;
-  const hits = [];
+  const hits = [], picked = [];
   for(const p of state.sightings){
     if(state.pick){
       // An explicit search beats the class chips and the set-aside toggle.
@@ -583,11 +593,12 @@ function drawMap(){
       fillColor:c, fillOpacity:.62, opacity:.85
     });
     m.on('click',()=>m.bindPopup(popup(p),{maxWidth:240}).openPopup());
+    if(state.pick) picked.push({m, p});
     layer.addLayer(m); shown++;
   }
   layer.addTo(map);
   $('#mapcount').textContent = shown.toLocaleString();
-  mapNote(hits);
+  mapNote(hits, picked);
   $('#mapwhat').textContent = state.pick
     ? `${state.pickLabel} sighting${shown===1?'':'s'} logged`
     : 'sightings logged';
@@ -611,31 +622,42 @@ function focusSpecies(sci, common, opts){
   sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash');
 }
 
-function clearSpecies(){
+function unpick(){
+  if(!state.pick) return false;
   state.pick = null; state.pickLabel = '';
   const q = $('#mapq'); if(q) q.value = '';
-  $('#pickpill').hidden = true;
-  drawMap(); renderCensus(); renderNotable();
+  const pill = $('#pickpill'); if(pill) pill.hidden = true;
+  renderCensus(); renderNotable();
+  return true;
 }
 
-function mapNote(hits){
+function clearSpecies(){ unpick(); drawMap(); }
+
+function mapNote(hits, picked){
   const note = $('#mapnote');
   if(!state.pick){ note.hidden = true; return; }
   const all = state.sightings.filter(p => p.sci === state.pick);
   if(hits.length){
-    const dates = all.map(p=>p.date).filter(Boolean).sort();
+    // dates of what is actually on screen, not of every record ever
+    const dates = (picked||[]).map(x=>x.p.date).filter(Boolean).sort();
+    const first = dates[0], last = dates[dates.length-1];
     note.innerHTML = hits.length === 1
-      ? `Every other animal is hidden. This one was recorded ${fmtShort(dates[dates.length-1])}. Click the point for the photograph.`
-      : `Every other animal is hidden. These ${hits.length.toLocaleString()} records run from ${fmtShort(dates[0])} to ${fmtShort(dates[dates.length-1])}.`;
+      ? `Every other animal is hidden. This one was recorded ${fmtShort(last)}.`
+      : `Every other animal is hidden. These ${hits.length.toLocaleString()} records run from ${fmtShort(first)} to ${fmtShort(last)}.`;
     note.hidden = false;
-    if(hits.length === 1) map.setView(hits[0], 15);
-    else map.fitBounds(L.latLngBounds(hits).pad(0.2), {maxZoom:14});
+    if(hits.length === 1){
+      map.setView(hits[0], 15, {animate:false});
+      const one = picked && picked[0];
+      if(one) one.m.bindPopup(popup(one.p),{maxWidth:240}).openPopup();
+    } else {
+      map.fitBounds(L.latLngBounds(hits).pad(0.2), {maxZoom:14, animate:false});
+    }
   } else if(all.length){
     const last = all.map(p=>p.date).filter(Boolean).sort().pop();
     note.innerHTML = `No ${esc(state.pickLabel)} in this date range. `
       + `Last recorded <a id="jumpto">${fmtShort(last)}</a>.`;
     note.hidden = false;
-    $('#jumpto').onclick = () => { if(setTimeRange) setTimeRange(last, isoDaysAgo(0), null); };
+    $('#jumpto').onclick = () => { if(setTimeRange) setTimeRange(last, isoDaysAgo(0), null, {keepPick:true}); };
   } else {
     const row = state.census.find(sp => sp.sci === state.pick);
     const ever = row ? row.count.toLocaleString() : '0';
@@ -675,7 +697,7 @@ function renderNotable(){
         <p class="sn">${esc(n.sci)}</p>
         <p class="why">${esc(n.why)}.</p>
         <p class="loc">${fmtDate(n.date)}${n.place?' · '+esc(n.place):''}</p>
-        <p class="go">Show on the map &#8599;</p>
+        <p class="go">${state.pick===n.sci?'Showing on the map. Click to undo':'Show on the map &#8599;'}</p>
         <a class="rec" href="${esc(n.uri)}" target="_blank" rel="noopener">See the record on iNaturalist</a>
       </div></article>`;
   }).join('');
@@ -701,7 +723,7 @@ function renderCensus(){
       ${img}
       <div class="nm"><b>${esc(s.common)}</b><i>${esc(s.sci)}</i>${s.ubiquitous?' <span class="flag">set aside</span>':''}</div>
       <div class="ct" style="color:${c}">${s.count.toLocaleString()}</div>
-      <div class="go">map &#8599;</div>
+      <div class="go">${state.pick===s.sci?'undo':'map &#8599;'}</div>
     </div>`;
   }).join('');
   $('#morebtn').style.display = total>state.censusLimit ? '' : 'none';
@@ -761,18 +783,24 @@ function wireChips(selector, set, onChange){
 }
 wireChips('#census-section .chip', state.censusCls, ()=>{state.censusLimit=60;renderCensus();});
 wireChips('.nchip', state.notableCls, renderNotable);
-$('#showubi').addEventListener('change',e=>{state.showUbi=e.target.checked;state.censusLimit=60;renderCensus();});
+$('#showubi').addEventListener('change',e=>{
+  state.showUbi=e.target.checked;
+  const m=$('#mapubi'); if(m) m.checked=e.target.checked;
+  state.censusLimit=60; renderCensus(); drawMap();
+});
 $('#morebtn').addEventListener('click',()=>{state.censusLimit+=90;renderCensus();});
 $('#cautionbtn').addEventListener('click',()=>$('#cautionbox').classList.toggle('open'));
 
 $('#census').addEventListener('click', e => {
   const row = e.target.closest('.srow'); if(!row) return;
-  focusSpecies(row.dataset.sci, row.dataset.common);
+  if(state.pick === row.dataset.sci) clearSpecies();
+  else focusSpecies(row.dataset.sci, row.dataset.common);
 });
 $('#notable').addEventListener('click', e => {
   if(e.target.closest('.rec')) return;   // the iNaturalist link keeps its own job
   const card = e.target.closest('.card'); if(!card) return;
-  focusSpecies(card.dataset.sci, card.dataset.common);
+  if(state.pick === card.dataset.sci) clearSpecies();
+  else focusSpecies(card.dataset.sci, card.dataset.common);
 });
 
 attachAC($('#search'),
