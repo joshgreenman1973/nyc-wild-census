@@ -78,6 +78,7 @@
   .timetools .custom{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);margin-left:10px}
   .timetools input[type=date]{font:inherit;font-size:13px;padding:3px 6px;border:1.5px solid var(--ink);background:var(--paper-2);color:var(--ink);border-radius:2px}
   @media (max-width:640px){.timetools .custom{margin-left:0;flex-wrap:wrap}}
+  .ebird-toggle{padding-right:14px;border-right:1px solid var(--rule)}
   .ubi-toggle{font-size:13px;color:var(--ink-soft);display:inline-flex;gap:7px;align-items:center;cursor:pointer}
   /* ---- Autocomplete ---- */
   .ac-wrap{position:relative;display:inline-block;min-width:250px;max-width:360px;width:100%}
@@ -121,6 +122,7 @@
   .popcard img{width:100%;height:130px;object-fit:cover;border:1px solid var(--ink);margin-bottom:7px;background:var(--paper-2)}
   .popcard .cn{font-family:"Fraunces";font-weight:600;font-size:16px;line-height:1.1;display:block}
   .popcard .sn{font-style:italic;color:var(--ink-soft);font-size:12.5px}
+  .popcard .src{font-variant:small-caps;letter-spacing:.04em}
   .popcard .meta{font-size:12px;color:var(--ink-soft);margin-top:6px;line-height:1.45}
   .popcard a{font-size:12px}
   .note{font-size:13px;color:var(--ink-soft);font-weight:300;margin:14px 0 0}
@@ -251,6 +253,10 @@
     <div class="maptools timetools" id="timetools"></div>
     <div id="map"></div>
     <p class="map-note" id="mapnote" hidden></p>
+    <p class="map-note" id="ebirdline" hidden>Hollow, dashed points are birds from
+      <a href="https://ebird.org" target="_blank" rel="noopener">eBird</a>: <span id="ebirdcount">0</span> shown,
+      the latest record of each species in each borough over the past month. Oxblood ones are the
+      rarities eBird's reviewers flagged. Data provided by eBird (ebird.org), Cornell Lab of Ornithology.</p>
     <p class="note">Each point is one research-grade observation confirmed by the iNaturalist community. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people notice (hawks, owls, herons, falcons, loons and cormorants) are plotted, since the full bird list runs to hundreds of species. Click a point for the photo and record.</p>
   </section>
 
@@ -288,6 +294,7 @@
     <div class="shead">
       <h2>Notable lately</h2>
       <p>The rarest animals seen in the city recently, ranked by how seldom they turn up. Click a card to see where it turned up.</p>
+      <p class="note" style="margin:6px 0 0">Two different measures sit side by side here. Mammals, reptiles and amphibians are ranked by how few times they have ever been recorded in the city, which iNaturalist can answer because it holds most of that record. Birds cannot be ranked that way, so the ones marked "unexpected" are those eBird flagged as outside its expectations for that county, which can mean scarce, out of season or an unusual count.</p>
     </div>
     <div class="census-controls">
       <span class="chip nchip" data-cls="mammals">Mammals</span>
@@ -372,7 +379,7 @@ const CLS = {
   reptiles:{color:'#5f7038',label:'Reptiles'},
   amphibians:{color:'#c08a1e',label:'Amphibians'},
 };
-const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[],
+const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[], ebird:[], showEbird:false,
   active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
   censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60,
   pick:null, pickLabel:''};
@@ -385,11 +392,11 @@ const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); const mo=
 let map, canvasRenderer, layer;
 
 async function load(){
-  const [census, sightings, notable, rescues, meta, zoo] = await Promise.all(
-    ['census','sightings','notable','rescues','meta','zoo_species'].map(
+  const [census, sightings, notable, rescues, meta, zoo, ebird] = await Promise.all(
+    ['census','sightings','notable','rescues','meta','zoo_species','ebird'].map(
       f=>fetch(`data/${f}.json`).then(r=>r.ok?r.json():[]).catch(()=>[]))
   );
-  Object.assign(state,{census,sightings,notable,rescues,meta,zoo});
+  Object.assign(state,{census,sightings,notable,rescues,meta,zoo,ebird:ebird||[]});
   renderHeader(); initMap(); renderMapTools(); drawMap();
   renderNotable(); renderCensus(); renderZoo(); renderRangers();
 }
@@ -410,8 +417,10 @@ function renderHeader(){
   $('#stats').innerHTML = stats.map(([n,l])=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
 }
 
+const HOME = {center:[40.705,-73.94], zoom:11};
+
 function initMap(){
-  map = L.map('map',{preferCanvas:true, scrollWheelZoom:false}).setView([40.705,-73.94],11);
+  map = L.map('map',{preferCanvas:true, scrollWheelZoom:false}).setView(HOME.center, HOME.zoom);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
     attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
   }).addTo(map);
@@ -461,7 +470,7 @@ function attachAC(input, source, onPick, opts){
     menu.innerHTML = items.map((it,i)=>`<div class="ac-item${i===sel?' sel':''}" data-i="${i}">
       <span class="dot" style="background:${(CLS[it.class]||{}).color||'#666'}"></span>
       <span class="nm"><b>${hilite(it.common, input.value.trim())}</b><i>${esc(it.sci)}</i></span>
-      <span class="ct">${it.count.toLocaleString()} ${opts.unit||'records'}</span>
+      <span class="ct">${it.count.toLocaleString()} ${(opts.unit||'records').replace(/s$/, it.count===1?'':'s')}</span>
     </div>`).join('');
     menu.hidden = false;
   };
@@ -507,7 +516,7 @@ function renderMapSearch(){
     </span>
     <span class="pickpill" id="pickpill" hidden>Map is showing <b id="pickname"></b><button class="x" id="clearq">show all</button></span>`;
   const input = $('#mapq'), clear = $('#clearq');
-  const list = speciesFrom(state.sightings);
+  const list = speciesFrom(state.sightings.concat(state.ebird));
   attachAC(input, q => matchSpecies(list, q, 8),
     it => focusSpecies(it.sci, it.common, {scroll:false}),
     {unit:'sightings', scopeNote:'on the map', onEscape:clearSpecies});
@@ -519,6 +528,7 @@ function renderMapTools(){
   el.innerHTML = Object.entries(CLS).map(([k,v])=>
     `<span class="legend-toggle" data-cls="${k}"><span class="dot" style="background:${v.color}"></span>${v.label}</span>`
   ).join('') + `<span class="sep"></span>`+
+  `<label class="ubi-toggle ebird-toggle"><input type="checkbox" id="mapebird"> add eBird birds</label>`+
   `<label class="ubi-toggle"><input type="checkbox" id="mapubi"> include pigeons, rats, squirrels &amp; co.</label>`;
   el.querySelectorAll('.legend-toggle').forEach(t=>t.onclick=()=>{
     const c=t.dataset.cls;
@@ -527,6 +537,11 @@ function renderMapTools(){
     unpick();
     drawMap();
   });
+  $('#mapebird').onchange=e=>{
+    state.showEbird=e.target.checked;
+    unpick();
+    drawMap();
+  };
   $('#mapubi').onchange=e=>{
     state.showUbi=e.target.checked;
     $('#showubi').checked=e.target.checked;   // the two toggles are one setting
@@ -596,8 +611,28 @@ function drawMap(){
     if(state.pick) picked.push({m, p});
     layer.addLayer(m); shown++;
   }
+  let ebirdShown = 0;
+  if(state.showEbird){
+    for(const p of state.ebird){
+      if(state.pick && p.sci !== state.pick) continue;
+      if(!state.pick && !state.active.has('birds')) continue;
+      if(state.tFrom && p.date && (p.date<state.tFrom || p.date>state.tTo)) continue;
+      const c = p.notable ? 'var(--oxblood)' : (CLS.birds||{}).color || '#2f6b6e';
+      const m = L.circleMarker([p.lat,p.lon],{
+        renderer:canvasRenderer, radius:p.notable?5:3.5,
+        color:'#241f18', weight:p.notable?1.4:0.8,
+        fillColor:p.notable?'#8a3324':((CLS.birds||{}).color||'#2f6b6e'),
+        fillOpacity:.5, opacity:.8, dashArray:'2,2'
+      });
+      m.on('click',()=>m.bindPopup(ebirdPopup(p),{maxWidth:240}).openPopup());
+      if(state.pick){ picked.push({m, p}); hits.push([p.lat,p.lon]); }
+      layer.addLayer(m); ebirdShown++;
+    }
+  }
   layer.addTo(map);
-  $('#mapcount').textContent = shown.toLocaleString();
+  $('#mapcount').textContent = (shown+ebirdShown).toLocaleString();
+  $('#ebirdline').hidden = !state.showEbird;
+  if(state.showEbird) $('#ebirdcount').textContent = ebirdShown.toLocaleString();
   mapNote(hits, picked);
   $('#mapwhat').textContent = state.pick
     ? `${state.pickLabel} sighting${shown===1?'':'s'} logged`
@@ -612,6 +647,13 @@ function drawMap(){
 function focusSpecies(sci, common, opts){
   opts = opts || {};
   state.pick = sci; state.pickLabel = common;
+  // If iNaturalist cannot show this bird but eBird can, turn that layer on.
+  if(!state.showEbird
+     && !state.sightings.some(p => p.sci === sci)
+     && state.ebird.some(p => p.sci === sci)){
+    state.showEbird = true;
+    const box = $('#mapebird'); if(box) box.checked = true;
+  }
   const q = $('#mapq');
   if(q) q.value = '';
   $('#pickname').textContent = common;
@@ -625,6 +667,7 @@ function focusSpecies(sci, common, opts){
 function unpick(){
   if(!state.pick) return false;
   state.pick = null; state.pickLabel = '';
+  map.setView(HOME.center, HOME.zoom, {animate:false});   // back to the whole city
   const q = $('#mapq'); if(q) q.value = '';
   const pill = $('#pickpill'); if(pill) pill.hidden = true;
   renderCensus(); renderNotable();
@@ -648,7 +691,7 @@ function mapNote(hits, picked){
     if(hits.length === 1){
       map.setView(hits[0], 15, {animate:false});
       const one = picked && picked[0];
-      if(one) one.m.bindPopup(popup(one.p),{maxWidth:240}).openPopup();
+      if(one) one.m.bindPopup((one.p.source==='ebird'?ebirdPopup:popup)(one.p),{maxWidth:240}).openPopup();
     } else {
       map.fitBounds(L.latLngBounds(hits).pad(0.2), {maxZoom:14, animate:false});
     }
@@ -661,11 +704,28 @@ function mapNote(hits, picked){
   } else {
     const row = state.census.find(sp => sp.sci === state.pick);
     const ever = row ? row.count.toLocaleString() : '0';
-    note.innerHTML = `No ${esc(state.pickLabel)} on the map. The map plots the last year only, `
-      + `and among birds just the charismatic orders, so most species in the census never appear on it. `
-      + `The census counts ${ever} record${ever==='1'?'':'s'} in all.`;
+    const inEbird = state.ebird.some(p => p.sci === state.pick);
+    note.innerHTML = inEbird
+      ? `No ${esc(state.pickLabel)} in this date range. eBird has it within the past month, `
+        + `so widen the range to see it.`
+      : `No ${esc(state.pickLabel)} on the map. The map plots the last year of iNaturalist records, `
+        + `and among birds just the charismatic orders. Switch on the eBird birds for fuller bird coverage. `
+        + `The census counts ${ever} record${ever==='1'?'':'s'} in all.`;
     note.hidden = false;
   }
+}
+
+function ebirdPopup(p){
+  const img = p.photo ? `<img src="${esc(p.photo).replace('square','medium')}" loading="lazy" alt="">` : '';
+  return `<div class="popcard">${img}
+    <span class="cn">${esc(p.common)}</span>
+    <span class="sn">${esc(p.sci)}</span>
+    <div class="meta">${fmtDate(p.date)}${p.time?' at '+esc(p.time):''}${p.place?'<br>'+esc(p.place):''}
+      ${p.howMany?'<br>'+p.howMany+' counted':''}
+      ${p.notable?'<br><b>Flagged rare by eBird</b>':''}
+      <br><span class="src">via eBird</span></div>
+    ${p.uri?`<a href="${esc(p.uri)}" target="_blank" rel="noopener">See the checklist &rarr;</a>`:''}
+  </div>`;
 }
 
 function popup(p){
@@ -686,7 +746,7 @@ function renderNotable(){
     ? `${list.length} of ${state.notable.length} shown`
     : '';
   $('#notable').innerHTML = list.map(n=>{
-    const tierName = n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen';
+    const tierName = n.tierLabel || (n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen');
     const img = n.photo?`<img src="${esc(n.photo).replace('square','medium')}" loading="lazy" alt="">`:`<div style="height:150px;background:#ddd2b6"></div>`;
     const c = (CLS[n.class]||{}).color||'#666';
     return `<article class="card tier-${n.tier}${state.pick===n.sci?' picked':''}" data-sci="${esc(n.sci)}" data-common="${esc(n.common)}" title="Show ${esc(n.common)} on the map">
@@ -698,7 +758,7 @@ function renderNotable(){
         <p class="why">${esc(n.why)}.</p>
         <p class="loc">${fmtDate(n.date)}${n.place?' · '+esc(n.place):''}</p>
         <p class="go">${state.pick===n.sci?'Showing on the map. Click to undo':'Show on the map &#8599;'}</p>
-        <a class="rec" href="${esc(n.uri)}" target="_blank" rel="noopener">See the record on iNaturalist</a>
+        <a class="rec" href="${esc(n.uri)}" target="_blank" rel="noopener">${n.source==='ebird'?'See the checklist on eBird':'See the record on iNaturalist'}</a>
       </div></article>`;
   }).join('');
 }

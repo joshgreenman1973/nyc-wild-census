@@ -2,7 +2,14 @@
 """
 Build the data files for the NYC Wild Animal Census map.
 
-Sources (all free, no API key required):
+Sources:
+  0. eBird API 2.0 -- birds. Needs a free key in EBIRD_API_KEY (GitHub secret,
+     or the macOS Keychain item EBIRD_API_KEY locally). iNaturalist's bird
+     record is thin next to eBird's, so eBird supplies the optional bird layer
+     on the map and the rarity verdict for birds in the notable feed. We
+     publish a derived subset -- the latest record per species per borough --
+     rather than a copy of eBird's observation database, and credit eBird
+     wherever it shows.
   1. iNaturalist API  -- research-grade wild-animal observations inside the
      NYC place boundary (place_id 674). Powers the species census, the map of
      recent sightings, and the notable-sightings feed.
@@ -12,6 +19,7 @@ Sources (all free, no API key required):
 
 Outputs (written to data/):
   census.json   -- every wild vertebrate species recorded, with counts
+  ebird.json    -- optional bird layer: latest eBird record per species per borough
   sightings.json-- recent geotagged observations, for the map
   notable.json  -- recent sightings of the rarest species, for the feed
   rescues.json  -- Park Ranger responses: recent list + aggregates
@@ -24,7 +32,9 @@ flagged (`ubiquitous: true`) and hidden by default, never silently dropped.
 """
 
 import json
+import os
 import re
+import subprocess
 import time
 import sys
 import urllib.request
@@ -37,6 +47,15 @@ DATA = Path(__file__).parent / "data"
 DATA.mkdir(exist_ok=True)
 
 INAT = "https://api.inaturalist.org/v1"
+EBIRD = "https://api.ebird.org/v2"
+EBIRD_DAYS = 30          # the API caps `back` at 30
+EBIRD_REGIONS = {        # eBird has no "New York City" region, only counties
+    "US-NY-005": "Bronx",
+    "US-NY-047": "Brooklyn",
+    "US-NY-061": "Manhattan",
+    "US-NY-081": "Queens",
+    "US-NY-085": "Staten Island",
+}
 PLACE_ID = 674  # New York City on iNaturalist
 UA = "nyc-wild-census/1.0 (github.com/joshgreenman1973; personal civic-data project)"
 
@@ -302,6 +321,113 @@ def build_census():
 
 
 # ---------------------------------------------------------------------------
+# 1b. eBird: the bird layer and the rarity verdict for birds
+# ---------------------------------------------------------------------------
+
+def ebird_key():
+    """Key from the environment (CI) or the macOS Keychain (this laptop)."""
+    k = os.environ.get("EBIRD_API_KEY")
+    if k:
+        return k.strip()
+    try:
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", "EBIRD_API_KEY", "-w"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def ebird_get(path, key, params):
+    url = f"{EBIRD}/{path}?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"X-eBirdApiToken": key, "User-Agent": UA})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                time.sleep(2 ** attempt)
+                continue
+            raise
+        except urllib.error.URLError:
+            if attempt < 3:
+                time.sleep(2 ** attempt)
+                continue
+            raise
+    return None
+
+
+def build_ebird(census):
+    """Latest eBird record per species per borough, plus eBird's rarity flag.
+
+    eBird's own reviewers maintain the regional filters that decide what counts
+    as notable, which is a far better rarity signal for birds than counting
+    iNaturalist records."""
+    key = ebird_key()
+    existing = DATA / "ebird.json"
+    if not key:
+        print("eBird: no EBIRD_API_KEY, skipping (leaving any existing ebird.json alone)")
+        if existing.exists():
+            return json.loads(existing.read_text())
+        return []
+
+    print(f"Fetching eBird birds (last {EBIRD_DAYS} days, 5 boroughs)...")
+    photos = {s["sci"]: s.get("photo") for s in census if s.get("photo")}
+    best = {}   # (sciName, borough) -> record
+    notable_species = set()
+
+    for region, borough in EBIRD_REGIONS.items():
+        rows = ebird_get(f"data/obs/{region}/recent", key,
+                         {"back": EBIRD_DAYS}) or []
+        rare = ebird_get(f"data/obs/{region}/recent/notable", key,
+                         {"back": EBIRD_DAYS, "detail": "full"}) or []
+        if not rows:
+            raise SystemExit(f"eBird returned no observations for {borough} ({region}). "
+                             "Refusing to publish a half-empty bird layer.")
+        for r in rare:
+            if r.get("sciName"):
+                notable_species.add(r["sciName"])
+        for r in rows + rare:
+            sci, lat, lon = r.get("sciName"), r.get("lat"), r.get("lng")
+            if not sci or lat is None or lon is None:
+                continue
+            k = (sci, borough)
+            cur = best.get(k)
+            if cur is None or (r.get("obsDt") or "") > (cur.get("obsDt") or ""):
+                best[k] = r
+        print(f"  {borough}: {len(rows)} species, {len(rare)} notable records")
+
+    points = []
+    for (sci, borough), r in best.items():
+        points.append({
+            "lat": round(r["lat"], 5),
+            "lon": round(r["lng"], 5),
+            "common": r.get("comName") or sci,
+            "sci": sci,
+            "class": "birds",
+            "date": (r.get("obsDt") or "")[:10],
+            "time": (r.get("obsDt") or "")[11:16],
+            "place": r.get("locName") or borough,
+            "borough": borough,
+            "howMany": r.get("howMany"),
+            "notable": sci in notable_species,
+            "photo": photos.get(sci),
+            "uri": f"https://ebird.org/checklist/{r['subId']}" if r.get("subId") else "",
+            "source": "ebird",
+        })
+    points.sort(key=lambda x: (x["date"], x["common"]), reverse=True)
+    (DATA / "ebird.json").write_text(json.dumps(points, separators=(",", ":")))
+    n_rare = sum(1 for p in points if p["notable"])
+    print(f"  -> {len(points)} records, {len(set(p['sci'] for p in points))} species, "
+          f"{n_rare} flagged notable by eBird")
+    return points
+
+
+# ---------------------------------------------------------------------------
 # 2. Recent geotagged sightings for the map
 # ---------------------------------------------------------------------------
 
@@ -399,7 +525,21 @@ def build_sightings():
 # 3. Notable-sightings feed (rarest species seen recently)
 # ---------------------------------------------------------------------------
 
-def build_notable(census, points):
+def _datekey(d):
+    """YYYY-MM-DD as a sortable int, for descending sorts inside a tuple."""
+    return int((d or "0000-00-00").replace("-", ""))
+
+
+def build_notable(census, points, ebird_points):
+    """Rarity, judged by the source that can actually judge it.
+
+    For mammals, reptiles and amphibians, iNaturalist is ~95% of the record, so
+    counting its records is a fair measure of how seldom a species turns up.
+    For birds it is not: eBird holds roughly 65 times more New York City bird
+    records, so an iNaturalist count says more about who carries a camera than
+    about how rare the bird is. Birds are therefore ranked by eBird's notable
+    flag, which its regional reviewers maintain, and are left out of the
+    count-based ranking entirely."""
     print("Ranking notable sightings...")
     counts = {s["sci"]: s["count"] for s in census}
     # One entry per species: the most recent sighting of each.
@@ -407,6 +547,8 @@ def build_notable(census, points):
     for p in points:
         if p["ubiquitous"] or not p["sci"]:
             continue
+        if p["class"] == "birds":
+            continue   # eBird decides this one
         cur = latest.get(p["sci"])
         if cur is None or (p["date"] or "") > (cur["date"] or ""):
             latest[p["sci"]] = p
@@ -432,6 +574,41 @@ def build_notable(census, points):
     # Rarest first, then most recent.
     items.sort(key=lambda x: (-x["tier"], x["total"], x["date"] or ""), reverse=False)
     items.sort(key=lambda x: (x["total"], -(x["tier"])))
+
+    # Birds: eBird's filters flag a record when it falls outside what its
+    # reviewers expect for that county at that time of year. That catches
+    # genuine rarities, but also common birds seen out of season or in
+    # unusual numbers -- a Mute Swan flagged in all five boroughs is a
+    # seasonal filter firing, not a rare bird. So these are labelled
+    # "unexpected", never "rare", and the ones flagged in only one borough
+    # (the likelier oddities) come first.
+    seen_bird, boroughs = {}, {}
+    for p in ebird_points or []:
+        if not p.get("notable"):
+            continue
+        boroughs.setdefault(p["sci"], set()).add(p.get("borough"))
+        cur = seen_bird.get(p["sci"])
+        if cur is None or (p["date"] or "") > (cur["date"] or ""):
+            seen_bird[p["sci"]] = p
+    birds = sorted(
+        seen_bird.values(),
+        key=lambda x: (len(boroughs.get(x["sci"], ())), -_datekey(x.get("date"))),
+    )[:12]
+    for b in birds:
+        n_bor = len(boroughs.get(b["sci"], ()))
+        item = dict(b)
+        item["tier"] = 2
+        item["tierLabel"] = "Unexpected"
+        item["total"] = None
+        item["why"] = ("Outside what eBird expects in "
+                       + (b.get("borough") or "this county")
+                       + " right now, whether that is scarcity, an off-season date or an odd count"
+                       + ("" if n_bor == 1 else f"; also flagged in {n_bor - 1} other borough"
+                          + ("s" if n_bor > 2 else "")))
+        items.append(item)
+    if birds:
+        print(f"  {len(birds)} bird species carried in from eBird's flagged list")
+
     items = items[:60]
     (DATA / "notable.json").write_text(json.dumps(items, separators=(",", ":")))
     print(f"  -> {len(items)} notable species in the feed")
@@ -496,10 +673,11 @@ def build_rescues():
 
 def main():
     census, zoo_only, by_class = build_census()
+    ebird = build_ebird(census)
     points = build_sightings()
     cutoff = (datetime.now(timezone.utc) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
     recent_points = [p for p in points if (p["date"] or "") >= cutoff]
-    notable = build_notable(census, recent_points)
+    notable = build_notable(census, recent_points, ebird)
     rescues = build_rescues()
 
     wild = [s for s in census if not s["ubiquitous"]]
@@ -513,12 +691,20 @@ def main():
             "zoo_only_species": len(zoo_only),
             "by_class": by_class,
             "map_points": len(points),
+            "ebird_points": len(ebird),
+            "ebird_species": len(set(p["sci"] for p in ebird)),
+            "ebird_notable": sum(1 for p in ebird if p.get("notable")),
             "recent_points": len(recent_points),
             "notable": len(notable),
             "ranger_responses": rescues["total"],
         },
+        "ebird_days": EBIRD_DAYS,
         "sources": {
             "inaturalist": f"iNaturalist API, place_id {PLACE_ID} (New York City), research-grade observations",
+            "ebird": ("eBird API 2.0, the five New York City counties, last "
+                      f"{EBIRD_DAYS} days. Latest record per species per borough, "
+                      "not a copy of eBird's observation database. Data provided by "
+                      "eBird (ebird.org), Cornell Lab of Ornithology."),
             "rangers": "NYC Open Data fuhs-xmg2 (Urban Park Ranger Animal Condition Response)",
         },
     }

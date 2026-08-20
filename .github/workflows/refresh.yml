@@ -17,7 +17,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild data from iNaturalist + NYC Open Data
+      - name: Rebuild data from eBird + iNaturalist + NYC Open Data
+        env:
+          EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
         run: python3 build_data.py
 
       - name: Commit if changed
