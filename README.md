@@ -6,10 +6,12 @@ A living census and map of the wild animals recorded in New York City: the coyot
 
 The page has four parts:
 
-1. **The map** — every research-grade sighting from the last year, colored by animal class, with a time-range picker (last week / 30 days / 120 days / year, or any custom span). Opens on the last 120 days. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people actually notice (hawks, owls, herons, falcons, loons, cormorants) are plotted, because the full bird list runs to hundreds of species.
+1. **The map** — every research-grade sighting from the last year, colored by animal class, with an animal search (type-ahead on every species that appears on the map) and a time-range picker (last week / 30 days / 120 days / year, or any custom span). Opens on the last 120 days. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people actually notice (hawks, owls, herons, falcons, loons, cormorants) are plotted, because the full bird list runs to hundreds of species.
 2. **Notable lately** — the rarest animals seen recently, ranked by how seldom they turn up in the city's records. This is where the mink, the river otter, the sei whale and the stray sea turtles surface.
 3. **The full census** — every wild species on record, most-seen first, searchable and filterable by class.
 4. **When the Rangers get called** — the NYC Urban Park Rangers' own animal-response log: what they respond to, and how those animals turn out.
+
+**The lists and the map are wired together.** Clicking any animal in "Notable lately" or the full census filters the map to that species, zooms to where it was recorded and says so in a banner above the map. Species the map cannot show (the census runs back to the first records and covers every bird; the map covers one year and only the charismatic bird orders) say that explicitly rather than showing an empty map.
 
 ## Sources
 

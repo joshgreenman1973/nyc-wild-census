@@ -79,6 +79,44 @@
   .timetools input[type=date]{font:inherit;font-size:13px;padding:3px 6px;border:1.5px solid var(--ink);background:var(--paper-2);color:var(--ink);border-radius:2px}
   @media (max-width:640px){.timetools .custom{margin-left:0;flex-wrap:wrap}}
   .ubi-toggle{font-size:13px;color:var(--ink-soft);display:inline-flex;gap:7px;align-items:center;cursor:pointer}
+  /* ---- Autocomplete ---- */
+  .ac-wrap{position:relative;display:inline-block;min-width:250px;max-width:360px;width:100%}
+  .ac-wrap input{
+    width:100%;box-sizing:border-box;font-family:"Spectral";font-size:15px;padding:8px 12px;
+    border:1.5px solid var(--ink);background:var(--paper);color:var(--ink)
+  }
+  .ac-menu{
+    position:absolute;z-index:900;left:0;right:0;top:calc(100% + 3px);background:var(--paper);
+    border:1.5px solid var(--ink);max-height:290px;overflow-y:auto;box-shadow:3px 3px 0 var(--shadow)
+  }
+  .ac-item{display:flex;align-items:center;gap:10px;padding:7px 11px;cursor:pointer;border-bottom:1px solid var(--rule)}
+  .ac-item:last-child{border-bottom:0}
+  .ac-item.sel{background:var(--paper-2)}
+  .ac-item .dot{width:10px;height:10px;border-radius:50%;flex:none;border:1.5px solid rgba(0,0,0,.35)}
+  .ac-item .nm{flex:1;min-width:0;font-size:14.5px;line-height:1.2}
+  .ac-item .nm i{display:block;font-size:12px;color:var(--ink-soft)}
+  .ac-item .ct{font-size:12px;color:var(--ink-soft);flex:none}
+  .ac-item mark{background:rgba(138,51,36,.18);color:inherit;padding:0 1px}
+  .ac-empty{padding:9px 12px;font-size:13.5px;color:var(--ink-soft)}
+  .mapsearch{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+  .pickpill{
+    display:inline-flex;align-items:center;gap:9px;padding:6px 8px 6px 12px;
+    background:var(--oxblood);color:var(--paper);font-size:13px;letter-spacing:.01em
+  }
+  .pickpill b{font-family:"Fraunces";font-weight:600;font-size:14px}
+  .pickpill .x{
+    border:0;background:rgba(255,255,255,.18);color:var(--paper);font-family:inherit;font-size:12px;
+    padding:3px 8px;cursor:pointer;letter-spacing:.04em
+  }
+  .pickpill .x:hover{background:rgba(255,255,255,.32)}
+  .clearq{font-size:13px;color:var(--oxblood);cursor:pointer;border:0;background:none;font-family:inherit;padding:0;text-decoration:underline;text-underline-offset:3px}
+  #map-section.flash #map{animation:flashmap 1.1s ease-out}
+  @keyframes flashmap{
+    0%{box-shadow:0 0 0 0 rgba(138,51,36,.55)}
+    100%{box-shadow:0 0 0 14px rgba(138,51,36,0)}
+  }
+  .map-note{font-size:13.5px;color:var(--ink-soft);margin:10px 0 0;font-style:italic}
+  .map-note a{color:var(--oxblood);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
   .popcard{font-family:"Spectral",serif;width:210px}
   .popcard img{width:100%;height:130px;object-fit:cover;border:1px solid var(--ink);margin-bottom:7px;background:var(--paper-2)}
   .popcard .cn{font-family:"Fraunces";font-weight:600;font-size:16px;line-height:1.1;display:block}
@@ -116,6 +154,15 @@
   .tier-2 .tier-tag{background:#7a5a1e}
   .tier-1 .tier-tag{background:#3f5545}
   .card .cls-strip{height:5px;width:100%}
+  .card{cursor:pointer;transition:box-shadow .12s,transform .12s}
+  .card:hover{box-shadow:6px 6px 0 var(--shadow);transform:translate(-1px,-1px)}
+  .card .rec{font-size:11.5px;color:var(--ink-soft);margin:9px 0 0;display:block;text-decoration:underline;text-underline-offset:2px}
+  .card .rec:hover{color:var(--oxblood)}
+  .card .go{
+    font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--oxblood);margin:10px 0 0;display:block
+  }
+  .card.picked{box-shadow:6px 6px 0 var(--oxblood)}
 
   /* ---- Census ---- */
   .census-controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin-bottom:18px}
@@ -126,7 +173,15 @@
   .chip{font-size:13px;padding:5px 13px;border:1.5px solid var(--ink);background:var(--paper-2);cursor:pointer;user-select:none}
   .chip.off{opacity:.35;background:transparent}
   .census-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px 22px}
-  .srow{display:flex;align-items:center;gap:11px;padding:7px 4px;border-bottom:1px solid var(--rule)}
+  .srow{display:flex;align-items:center;gap:11px;padding:7px 4px;border-bottom:1px solid var(--rule);cursor:pointer}
+  .srow:hover{background:var(--paper-2)}
+  .srow:hover .ct{display:none}
+  .srow .go{
+    display:none;flex:none;font-size:10.5px;font-weight:600;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--oxblood);white-space:nowrap
+  }
+  .srow:hover .go{display:block}
+  .srow.picked{background:var(--paper-2);box-shadow:inset 3px 0 0 var(--oxblood)}
   .srow img{width:38px;height:38px;object-fit:cover;border:1px solid var(--ink);flex:none;background:var(--paper-2)}
   .srow .nm{flex:1;min-width:0}
   .srow .nm b{font-family:"Fraunces";font-weight:500;font-size:14.5px;display:block;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -189,11 +244,13 @@
   <section id="map-section">
     <div class="shead">
       <h2>The map</h2>
-      <p><span class="num" id="mapcount">—</span> sightings logged <span id="daysline">in the last 120 days</span></p>
+      <p><span class="num" id="mapcount">—</span> <span id="mapwhat">sightings logged</span> <span id="daysline">in the last 120 days</span></p>
     </div>
+    <div class="mapsearch" id="mapsearch"></div>
     <div class="maptools" id="maptools"></div>
     <div class="maptools timetools" id="timetools"></div>
     <div id="map"></div>
+    <p class="map-note" id="mapnote" hidden></p>
     <p class="note">Each point is one research-grade observation confirmed by the iNaturalist community. Mammals, reptiles and amphibians are shown in full; among birds, only the charismatic groups people notice (hawks, owls, herons, falcons, loons and cormorants) are plotted, since the full bird list runs to hundreds of species. Click a point for the photo and record.</p>
   </section>
 
@@ -230,7 +287,7 @@
   <section id="notable-section">
     <div class="shead">
       <h2>Notable lately</h2>
-      <p>The rarest animals seen in the city recently, ranked by how seldom they turn up</p>
+      <p>The rarest animals seen in the city recently, ranked by how seldom they turn up. Click a card to see where it turned up.</p>
     </div>
     <div class="census-controls">
       <span class="chip nchip" data-cls="mammals">Mammals</span>
@@ -246,10 +303,10 @@
   <section id="census-section">
     <div class="shead">
       <h2>The full census</h2>
-      <p><span class="num" id="wildcount">—</span> wild species on record, most-seen first</p>
+      <p><span class="num" id="wildcount">—</span> wild species on record, most-seen first. Click any animal to see it on the map.</p>
     </div>
     <div class="census-controls">
-      <input type="search" id="search" placeholder="Search species…" autocomplete="off">
+      <span class="ac-wrap"><input type="search" id="search" placeholder="Search species…" autocomplete="off"><div class="ac-menu" hidden></div></span>
       <span class="chip" data-cls="mammals">Mammals</span>
       <span class="chip" data-cls="birds">Birds</span>
       <span class="chip" data-cls="reptiles">Reptiles</span>
@@ -317,7 +374,9 @@ const CLS = {
 };
 const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[],
   active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
-  censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60};
+  censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60,
+  pick:null, pickLabel:''};
+let setTimeRange = null;
 
 const $ = s => document.querySelector(s);
 const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -360,6 +419,101 @@ function initMap(){
   canvasRenderer = L.canvas({padding:0.5});
 }
 
+// ---- autocomplete -------------------------------------------------------
+function hilite(text, q){
+  const t = esc(text);
+  if(!q) return t;
+  const i = t.toLowerCase().indexOf(esc(q).toLowerCase());
+  if(i < 0) return t;
+  return t.slice(0,i) + '<mark>' + t.slice(i, i+q.length) + '</mark>' + t.slice(i+q.length);
+}
+
+function speciesFrom(points){
+  const by = new Map();
+  for(const p of points){
+    if(!p.sci) continue;
+    const e = by.get(p.sci);
+    if(e) e.count++;
+    else by.set(p.sci, {sci:p.sci, common:p.common, class:p.class, count:1, ubiquitous:p.ubiquitous});
+  }
+  return [...by.values()].sort((a,b)=>b.count-a.count);
+}
+
+function matchSpecies(list, q, limit){
+  const n = q.trim().toLowerCase();
+  if(!n) return [];
+  const starts = [], contains = [];
+  for(const sp of list){
+    const c = (sp.common||'').toLowerCase(), sc = (sp.sci||'').toLowerCase();
+    if(c.startsWith(n) || sc.startsWith(n)) starts.push(sp);
+    else if(c.includes(n) || sc.includes(n)) contains.push(sp);
+  }
+  return starts.concat(contains).slice(0, limit || 8);
+}
+
+function attachAC(input, source, onPick, opts){
+  opts = opts || {};
+  const wrap = input.closest('.ac-wrap');
+  const menu = wrap.querySelector('.ac-menu');
+  let items = [], sel = -1;
+  const close = () => { menu.hidden = true; sel = -1; };
+  const paint = () => {
+    menu.innerHTML = items.map((it,i)=>`<div class="ac-item${i===sel?' sel':''}" data-i="${i}">
+      <span class="dot" style="background:${(CLS[it.class]||{}).color||'#666'}"></span>
+      <span class="nm"><b>${hilite(it.common, input.value.trim())}</b><i>${esc(it.sci)}</i></span>
+      <span class="ct">${it.count.toLocaleString()} ${opts.unit||'records'}</span>
+    </div>`).join('');
+    menu.hidden = false;
+  };
+  const open = () => {
+    const q = input.value.trim();
+    if(!q){ close(); return; }
+    items = source(q);
+    if(!items.length){
+      menu.innerHTML = `<div class="ac-empty">Nothing by that name ${opts.scopeNote||'in the census'}</div>`;
+      menu.hidden = false; sel = -1; return;
+    }
+    sel = 0; paint();
+  };
+  const choose = i => { const it = items[i]; if(!it) return; close(); onPick(it); };
+
+  input.addEventListener('input', open);
+  input.addEventListener('focus', open);
+  input.addEventListener('keydown', e => {
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      if(menu.hidden || !items.length) return;
+      e.preventDefault();
+      sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      paint();
+      const el = menu.querySelector('.ac-item.sel'); if(el) el.scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter'){
+      if(!menu.hidden && sel >= 0){ e.preventDefault(); choose(sel); }
+    } else if(e.key === 'Escape'){
+      close(); if(opts.onEscape) opts.onEscape();
+    }
+  });
+  menu.addEventListener('mousedown', e => {
+    const row = e.target.closest('.ac-item'); if(!row) return;
+    e.preventDefault(); choose(+row.dataset.i);
+  });
+  input.addEventListener('blur', () => setTimeout(close, 120));
+}
+
+function renderMapSearch(){
+  const el = $('#mapsearch');
+  el.innerHTML = `<span class="ac-wrap">
+      <input type="search" id="mapq" placeholder="Find an animal, say otter or coyote" autocomplete="off">
+      <div class="ac-menu" hidden></div>
+    </span>
+    <span class="pickpill" id="pickpill" hidden>Map is showing <b id="pickname"></b><button class="x" id="clearq">show all</button></span>`;
+  const input = $('#mapq'), clear = $('#clearq');
+  const list = speciesFrom(state.sightings);
+  attachAC(input, q => matchSpecies(list, q, 8),
+    it => focusSpecies(it.sci, it.common, {scroll:false}),
+    {unit:'sightings', scopeNote:'on the map', onEscape:clearSpecies});
+  clear.onclick = clearSpecies;
+}
+
 function renderMapTools(){
   const el = $('#maptools');
   el.innerHTML = Object.entries(CLS).map(([k,v])=>
@@ -374,6 +528,7 @@ function renderMapTools(){
   });
   $('#mapubi').onchange=e=>{state.showUbi=e.target.checked;drawMap();};
   renderTimeTools();
+  renderMapSearch();
 }
 
 // ---- time range ---------------------------------------------------------
@@ -395,6 +550,7 @@ function renderTimeTools(){
     el.querySelectorAll('.time-chip').forEach(c=>c.classList.toggle('on', +c.dataset.days===days));
     drawMap();
   };
+  setTimeRange = setRange;
   el.querySelectorAll('.time-chip').forEach(c=>c.onclick=()=>setRange(isoDaysAgo(+c.dataset.days), today, +c.dataset.days));
   const custom=()=>{
     let f=from.value||minDate, t=to.value||today;
@@ -410,10 +566,17 @@ function drawMap(){
   if(layer) layer.remove();
   layer = L.layerGroup();
   let shown=0;
+  const hits = [];
   for(const p of state.sightings){
-    if(!state.active.has(p.class)) continue;
-    if(p.ubiquitous && !state.showUbi) continue;
+    if(state.pick){
+      // An explicit search beats the class chips and the set-aside toggle.
+      if(p.sci !== state.pick) continue;
+    } else {
+      if(!state.active.has(p.class)) continue;
+      if(p.ubiquitous && !state.showUbi) continue;
+    }
     if(state.tFrom && p.date && (p.date<state.tFrom || p.date>state.tTo)) continue;
+    hits.push([p.lat,p.lon]);
     const c = (CLS[p.class]||{}).color || '#666';
     const m = L.circleMarker([p.lat,p.lon],{
       renderer:canvasRenderer, radius:4, color:c, weight:1,
@@ -424,10 +587,62 @@ function drawMap(){
   }
   layer.addTo(map);
   $('#mapcount').textContent = shown.toLocaleString();
+  mapNote(hits);
+  $('#mapwhat').textContent = state.pick
+    ? `${state.pickLabel} sighting${shown===1?'':'s'} logged`
+    : 'sightings logged';
   if(state.tFrom){
     $('#daysline').textContent = state.tDays===7 ? 'in the last week'
       : state.tDays ? `in the last ${state.tDays} days`
       : `between ${fmtShort(state.tFrom)} and ${fmtShort(state.tTo)}`;
+  }
+}
+
+function focusSpecies(sci, common, opts){
+  opts = opts || {};
+  state.pick = sci; state.pickLabel = common;
+  const q = $('#mapq');
+  if(q) q.value = '';
+  $('#pickname').textContent = common;
+  $('#pickpill').hidden = false;
+  drawMap(); renderCensus(); renderNotable();
+  const sec = $('#map-section');
+  if(opts.scroll !== false) sec.scrollIntoView({behavior:'smooth', block:'start'});
+  sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash');
+}
+
+function clearSpecies(){
+  state.pick = null; state.pickLabel = '';
+  const q = $('#mapq'); if(q) q.value = '';
+  $('#pickpill').hidden = true;
+  drawMap(); renderCensus(); renderNotable();
+}
+
+function mapNote(hits){
+  const note = $('#mapnote');
+  if(!state.pick){ note.hidden = true; return; }
+  const all = state.sightings.filter(p => p.sci === state.pick);
+  if(hits.length){
+    const dates = all.map(p=>p.date).filter(Boolean).sort();
+    note.innerHTML = hits.length === 1
+      ? `Every other animal is hidden. This one was recorded ${fmtShort(dates[dates.length-1])}. Click the point for the photograph.`
+      : `Every other animal is hidden. These ${hits.length.toLocaleString()} records run from ${fmtShort(dates[0])} to ${fmtShort(dates[dates.length-1])}.`;
+    note.hidden = false;
+    if(hits.length === 1) map.setView(hits[0], 15);
+    else map.fitBounds(L.latLngBounds(hits).pad(0.2), {maxZoom:14});
+  } else if(all.length){
+    const last = all.map(p=>p.date).filter(Boolean).sort().pop();
+    note.innerHTML = `No ${esc(state.pickLabel)} in this date range. `
+      + `Last recorded <a id="jumpto">${fmtShort(last)}</a>.`;
+    note.hidden = false;
+    $('#jumpto').onclick = () => { if(setTimeRange) setTimeRange(last, isoDaysAgo(0), null); };
+  } else {
+    const row = state.census.find(sp => sp.sci === state.pick);
+    const ever = row ? row.count.toLocaleString() : '0';
+    note.innerHTML = `No ${esc(state.pickLabel)} on the map. The map plots the last year only, `
+      + `and among birds just the charismatic orders, so most species in the census never appear on it. `
+      + `The census counts ${ever} record${ever==='1'?'':'s'} in all.`;
+    note.hidden = false;
   }
 }
 
@@ -452,7 +667,7 @@ function renderNotable(){
     const tierName = n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen';
     const img = n.photo?`<img src="${esc(n.photo).replace('square','medium')}" loading="lazy" alt="">`:`<div style="height:150px;background:#ddd2b6"></div>`;
     const c = (CLS[n.class]||{}).color||'#666';
-    return `<a class="card tier-${n.tier}" href="${esc(n.uri)}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
+    return `<article class="card tier-${n.tier}${state.pick===n.sci?' picked':''}" data-sci="${esc(n.sci)}" data-common="${esc(n.common)}" title="Show ${esc(n.common)} on the map">
       <span class="tier-tag">${tierName}</span>${img}
       <div class="cls-strip" style="background:${c}"></div>
       <div class="body">
@@ -460,7 +675,9 @@ function renderNotable(){
         <p class="sn">${esc(n.sci)}</p>
         <p class="why">${esc(n.why)}.</p>
         <p class="loc">${fmtDate(n.date)}${n.place?' · '+esc(n.place):''}</p>
-      </div></a>`;
+        <p class="go">Show on the map &#8599;</p>
+        <a class="rec" href="${esc(n.uri)}" target="_blank" rel="noopener">See the record on iNaturalist</a>
+      </div></article>`;
   }).join('');
 }
 
@@ -480,10 +697,11 @@ function renderCensus(){
   grid.innerHTML = list.map(s=>{
     const c=(CLS[s.class]||{}).color||'#666';
     const img = s.photo?`<img src="${esc(s.photo)}" loading="lazy" alt="">`:`<img alt="" style="background:${c}22">`;
-    return `<div class="srow ${s.ubiquitous?'ubi':''}">
+    return `<div class="srow ${s.ubiquitous?'ubi':''}${state.pick===s.sci?' picked':''}" data-sci="${esc(s.sci)}" data-common="${esc(s.common)}" title="Show ${esc(s.common)} on the map">
       ${img}
       <div class="nm"><b>${esc(s.common)}</b><i>${esc(s.sci)}</i>${s.ubiquitous?' <span class="flag">set aside</span>':''}</div>
       <div class="ct" style="color:${c}">${s.count.toLocaleString()}</div>
+      <div class="go">map &#8599;</div>
     </div>`;
   }).join('');
   $('#morebtn').style.display = total>state.censusLimit ? '' : 'none';
@@ -546,6 +764,26 @@ wireChips('.nchip', state.notableCls, renderNotable);
 $('#showubi').addEventListener('change',e=>{state.showUbi=e.target.checked;state.censusLimit=60;renderCensus();});
 $('#morebtn').addEventListener('click',()=>{state.censusLimit+=90;renderCensus();});
 $('#cautionbtn').addEventListener('click',()=>$('#cautionbox').classList.toggle('open'));
+
+$('#census').addEventListener('click', e => {
+  const row = e.target.closest('.srow'); if(!row) return;
+  focusSpecies(row.dataset.sci, row.dataset.common);
+});
+$('#notable').addEventListener('click', e => {
+  if(e.target.closest('.rec')) return;   // the iNaturalist link keeps its own job
+  const card = e.target.closest('.card'); if(!card) return;
+  focusSpecies(card.dataset.sci, card.dataset.common);
+});
+
+attachAC($('#search'),
+  q => matchSpecies(state.census, q, 8),
+  it => {
+    if(it.ubiquitous && !state.showUbi){ state.showUbi = true; $('#showubi').checked = true; }
+    $('#search').value = it.common;
+    state.search = it.common; state.censusLimit = 60;
+    focusSpecies(it.sci, it.common);
+  },
+  {unit:'records', scopeNote:'in the census'});
 
 load();
 </script>
