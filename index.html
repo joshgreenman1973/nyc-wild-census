@@ -74,7 +74,9 @@
   .maptools .sep{flex:1}
   .timetools{margin-top:-6px;gap:6px 8px}
   .timetools .tlabel{font-size:13px;color:var(--ink-soft);margin-right:4px}
-  .timetools .chip.on{background:var(--ink);color:var(--paper)}
+  .timetools .chip.on,.sort-chip.on{background:var(--ink);color:var(--paper)}
+  .sortset{display:inline-flex;align-items:center;gap:7px;margin-left:4px}
+  .sortset .tlabel{font-size:13px;color:var(--ink-soft)}
   .timetools .custom{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);margin-left:10px}
   .timetools input[type=date]{font:inherit;font-size:13px;padding:3px 6px;border:1.5px solid var(--ink);background:var(--paper-2);color:var(--ink);border-radius:2px}
   @media (max-width:640px){.timetools .custom{margin-left:0;flex-wrap:wrap}}
@@ -293,7 +295,7 @@
   <section id="notable-section">
     <div class="shead">
       <h2>Notable lately</h2>
-      <p>The rarest animals seen in the city recently, ranked by how seldom they turn up. Click a card to see where it turned up.</p>
+      <p>The rarest and most unexpected animals seen in the city recently. Click a card to see where it turned up.</p>
       <p class="note" style="margin:6px 0 0">Two different measures sit side by side here. Mammals, reptiles and amphibians are ranked by how few times they have ever been recorded in the city, which iNaturalist can answer because it holds most of that record. Birds cannot be ranked that way, so the ones marked "unexpected" are those eBird flagged as outside its expectations for that county, which can mean scarce, out of season or an unusual count.</p>
     </div>
     <div class="census-controls">
@@ -301,6 +303,10 @@
       <span class="chip nchip" data-cls="birds">Birds</span>
       <span class="chip nchip" data-cls="reptiles">Reptiles</span>
       <span class="chip nchip" data-cls="amphibians">Amphibians</span>
+      <span class="sortset"><span class="tlabel">Order</span>
+        <span class="chip sort-chip on" data-sort="rarity">Rarest first</span>
+        <span class="chip sort-chip" data-sort="recent">Newest first</span>
+      </span>
       <span id="notable-status" style="font-size:13px;color:var(--ink-soft)"></span>
     </div>
     <div class="notable-grid" id="notable"></div>
@@ -381,7 +387,7 @@ const CLS = {
 };
 const state = {census:[], sightings:[], notable:[], rescues:null, meta:null, zoo:[], ebird:[], showEbird:false,
   active:new Set(['mammals','birds','reptiles','amphibians']), showUbi:false,
-  censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60,
+  censusCls:new Set(), notableCls:new Set(), search:'', censusLimit:60, notableSort:'rarity',
   pick:null, pickLabel:''};
 let setTimeRange = null;
 
@@ -740,11 +746,18 @@ function popup(p){
 
 function renderNotable(){
   const sel = state.notableCls;
-  const list = sel.size ? state.notable.filter(n=>sel.has(n.class)) : state.notable;
+  let list = sel.size ? state.notable.filter(n=>sel.has(n.class)) : state.notable;
+  if(state.notableSort === 'recent'){
+    // Newest first, ties broken by rarity so a crowded day still reads sensibly.
+    list = list.slice().sort((a,b) =>
+      (b.date||'').localeCompare(a.date||'') || ((a.total ?? 0) - (b.total ?? 0)));
+  }
   $('#notable-empty').style.display = list.length ? 'none' : '';
   $('#notable-status').textContent = sel.size
     ? `${list.length} of ${state.notable.length} shown`
-    : '';
+    : (state.notableSort === 'recent'
+        ? `${list.length} sightings, most recent first`
+        : '');
   $('#notable').innerHTML = list.map(n=>{
     const tierName = n.tierLabel || (n.tier===3?'Rare':n.tier===2?'Uncommon':'Seldom seen');
     const img = n.photo?`<img src="${esc(n.photo).replace('square','medium')}" loading="lazy" alt="">`:`<div style="height:150px;background:#ddd2b6"></div>`;
@@ -843,6 +856,11 @@ function wireChips(selector, set, onChange){
 }
 wireChips('#census-section .chip', state.censusCls, ()=>{state.censusLimit=60;renderCensus();});
 wireChips('.nchip', state.notableCls, renderNotable);
+document.querySelectorAll('.sort-chip').forEach(c => c.onclick = () => {
+  state.notableSort = c.dataset.sort;
+  document.querySelectorAll('.sort-chip').forEach(o => o.classList.toggle('on', o === c));
+  renderNotable();
+});
 $('#showubi').addEventListener('change',e=>{
   state.showUbi=e.target.checked;
   const m=$('#mapubi'); if(m) m.checked=e.target.checked;
