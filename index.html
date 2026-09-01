@@ -427,7 +427,7 @@ const HOME = {center:[40.705,-73.94], zoom:11};
 
 function initMap(){
   map = L.map('map',{preferCanvas:true, scrollWheelZoom:false}).setView(HOME.center, HOME.zoom);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2r82_1_ae4e70b6166057bc41b89638',{
     attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
   }).addTo(map);
   map.on('click',()=>map.scrollWheelZoom.enable());
