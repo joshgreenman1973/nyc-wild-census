@@ -1,5 +1,5 @@
 {
-  "built": "2026-10-10T16:28:55+00:00",
+  "built": "2026-10-11T16:52:57+00:00",
   "recent_days": 120,
   "map_days": 365,
   "totals": {
@@ -12,11 +12,11 @@
       "reptiles": 41,
       "amphibians": 18
     },
-    "map_points": 12500,
-    "ebird_points": 1013,
-    "ebird_species": 260,
-    "ebird_notable": 510,
-    "recent_points": 4332,
+    "map_points": 12520,
+    "ebird_points": 1017,
+    "ebird_species": 263,
+    "ebird_notable": 521,
+    "recent_points": 4343,
     "notable": 48,
     "ranger_responses": 9131
   },
