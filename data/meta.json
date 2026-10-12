@@ -1,22 +1,22 @@
 {
-  "built": "2026-10-11T16:52:57+00:00",
+  "built": "2026-10-12T20:32:20+00:00",
   "recent_days": 120,
   "map_days": 365,
   "totals": {
-    "species": 544,
-    "wild_species": 536,
+    "species": 543,
+    "wild_species": 535,
     "zoo_only_species": 1,
     "by_class": {
-      "mammals": 44,
+      "mammals": 43,
       "birds": 441,
       "reptiles": 41,
       "amphibians": 18
     },
-    "map_points": 12520,
-    "ebird_points": 1017,
-    "ebird_species": 263,
-    "ebird_notable": 521,
-    "recent_points": 4343,
+    "map_points": 12523,
+    "ebird_points": 1014,
+    "ebird_species": 260,
+    "ebird_notable": 506,
+    "recent_points": 4341,
     "notable": 48,
     "ranger_responses": 9131
   },
